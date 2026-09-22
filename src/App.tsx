@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Board } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
+import { LichessImport } from './components/LichessImport';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
 import { useChessGame } from './hooks/useChessGame';
 import { useStockfish } from './hooks/useStockfish';
 import './App.css';
 
-type ImportTab = 'paste' | 'archive';
+type ImportTab = 'paste' | 'archive' | 'lichess';
 
 function uciToArrow(uciMove: string) {
   return {
@@ -80,12 +81,17 @@ function App() {
             >
               TWIC archive
             </button>
+            <button
+              type="button"
+              className={importTab === 'lichess' ? 'app__tab app__tab--active' : 'app__tab'}
+              onClick={() => setImportTab('lichess')}
+            >
+              Lichess
+            </button>
           </div>
-          {importTab === 'paste' ? (
-            <PgnImport onLoad={loadPgn} error={error} />
-          ) : (
-            <GameArchiveImport onSelectGame={loadPgn} />
-          )}
+          {importTab === 'paste' && <PgnImport onLoad={loadPgn} error={error} />}
+          {importTab === 'archive' && <GameArchiveImport onSelectGame={loadPgn} />}
+          {importTab === 'lichess' && <LichessImport onSelectGame={loadPgn} />}
           <MoveList moves={moves} currentPly={currentPly} onSelectPly={goToPly} />
         </div>
       </div>

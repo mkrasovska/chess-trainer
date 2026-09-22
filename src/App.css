@@ -121,11 +121,55 @@
   font-size: 13px;
 }
 
-.archive-import {
+.archive-import,
+.lichess-import {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+.lichess-import__hint {
+  font-size: 13px;
+  color: var(--text, #6b6375);
+}
+
+.lichess-import__search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.lichess-import__input {
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.lichess-import__button {
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.lichess-import__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lichess-import__suggestion {
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+  background: none;
+}
+
+.lichess-import__status {
+  font-size: 13px;
+}
+
+.lichess-import__status--error {
+  color: #d33;
 }
 
 .archive-import__hint {
