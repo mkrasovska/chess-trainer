@@ -78,6 +78,25 @@
   text-align: left;
 }
 
+.app__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.app__tab {
+  padding: 6px 12px;
+  cursor: pointer;
+  border: 1px solid var(--border, #e5e4e7);
+  background: none;
+  border-radius: 4px;
+}
+
+.app__tab--active {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  font-weight: 600;
+}
+
 .pgn-import {
   display: flex;
   flex-direction: column;
@@ -100,6 +119,66 @@
 .pgn-import__error {
   color: #d33;
   font-size: 13px;
+}
+
+.archive-import {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.archive-import__hint {
+  font-size: 13px;
+  color: var(--text, #6b6375);
+}
+
+.archive-import__status {
+  font-size: 13px;
+}
+
+.archive-import__search {
+  padding: 6px 8px;
+}
+
+.archive-import__results {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+}
+
+.archive-import__result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-bottom: 1px solid var(--border, #e5e4e7);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.archive-import__result:hover {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+}
+
+.archive-import__players {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.archive-import__meta {
+  font-size: 12px;
+  color: var(--text, #6b6375);
+}
+
+.archive-import__more-hint {
+  font-size: 12px;
+  color: var(--text, #6b6375);
+  padding: 6px 8px;
 }
 
 .move-list {
