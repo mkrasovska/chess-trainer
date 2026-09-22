@@ -1,8 +1,19 @@
+import { useEffect, useMemo } from 'react';
 import { Board } from './components/Board';
+import { EvalBar } from './components/EvalBar';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
 import { useChessGame } from './hooks/useChessGame';
+import { useStockfish } from './hooks/useStockfish';
 import './App.css';
+
+function uciToArrow(uciMove: string) {
+  return {
+    startSquare: uciMove.slice(0, 2),
+    endSquare: uciMove.slice(2, 4),
+    color: 'rgba(0, 128, 0, 0.6)',
+  };
+}
 
 function App() {
   const {
@@ -19,17 +30,34 @@ function App() {
     goLast,
   } = useChessGame();
 
+  const { isReady, line, bestMove, evaluate } = useStockfish();
+
+  useEffect(() => {
+    if (isReady) evaluate(currentFen);
+  }, [isReady, currentFen, evaluate]);
+
+  const sideToMove = (currentFen.split(' ')[1] === 'b' ? 'b' : 'w') as 'w' | 'b';
+  const arrows = useMemo(() => (bestMove ? [uciToArrow(bestMove)] : []), [bestMove]);
+
   return (
     <div className="app">
       <h1>Chess Trainer</h1>
       <div className="app__layout">
-        <div className="app__board">
-          <Board fen={currentFen} onMove={makeMove} />
-          <div className="app__nav">
-            <button type="button" onClick={goFirst}>{'|<'}</button>
-            <button type="button" onClick={goPrev}>{'<'}</button>
-            <button type="button" onClick={goNext}>{'>'}</button>
-            <button type="button" onClick={goLast}>{'>|'}</button>
+        <div className="app__board-row">
+          <EvalBar
+            scoreCp={line?.scoreCp ?? null}
+            scoreMate={line?.scoreMate ?? null}
+            sideToMove={sideToMove}
+            depth={line?.depth ?? null}
+          />
+          <div className="app__board">
+            <Board fen={currentFen} onMove={makeMove} arrows={arrows} />
+            <div className="app__nav">
+              <button type="button" onClick={goFirst}>{'|<'}</button>
+              <button type="button" onClick={goPrev}>{'<'}</button>
+              <button type="button" onClick={goNext}>{'>'}</button>
+              <button type="button" onClick={goLast}>{'>|'}</button>
+            </div>
           </div>
         </div>
         <div className="app__sidebar">
