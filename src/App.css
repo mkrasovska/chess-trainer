@@ -1,0 +1,96 @@
+.app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.app__layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.app__board {
+  width: 480px;
+  max-width: 100%;
+}
+
+.app__nav {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.app__nav button {
+  flex: 1;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.app__sidebar {
+  flex: 1;
+  min-width: 260px;
+  text-align: left;
+}
+
+.pgn-import {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pgn-import__textarea {
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  padding: 8px;
+}
+
+.pgn-import__button {
+  align-self: flex-start;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.pgn-import__error {
+  color: #d33;
+  font-size: 13px;
+}
+
+.move-list {
+  border-top: 1px solid var(--border, #e5e4e7);
+  padding-top: 8px;
+}
+
+.move-list__empty {
+  color: var(--text, #6b6375);
+  font-size: 14px;
+}
+
+.move-list__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.move-list__number {
+  width: 28px;
+  color: var(--text, #6b6375);
+  font-size: 14px;
+}
+
+.move-list__move {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.move-list__move--active {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  font-weight: 600;
+}
