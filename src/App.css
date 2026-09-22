@@ -181,7 +181,18 @@
   font-size: 13px;
 }
 
+.archive-import__search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.archive-import__search-row button {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
 .archive-import__search {
+  flex: 1;
   padding: 6px 8px;
 }
 
