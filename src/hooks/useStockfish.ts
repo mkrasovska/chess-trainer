@@ -7,15 +7,37 @@ export type EngineLine = {
   pv: string[];
 };
 
+type PendingSearch = {
+  fen: string;
+  depth: number;
+};
+
 export function useStockfish() {
   const workerRef = useRef<Worker | null>(null);
+  const isSearchingRef = useRef(false);
+  const stopRequestedRef = useRef(false);
+  const pendingRef = useRef<PendingSearch | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [line, setLine] = useState<EngineLine | null>(null);
   const [bestMove, setBestMove] = useState<string | null>(null);
 
-  useEffect(() => {
+  const runSearch = useCallback(({ fen, depth }: PendingSearch) => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    isSearchingRef.current = true;
+    stopRequestedRef.current = false;
+    setBestMove(null);
+    setLine(null);
+    worker.postMessage(`position fen ${fen}`);
+    worker.postMessage(`go depth ${depth}`);
+  }, []);
+
+  const startWorker = useCallback(() => {
     const worker = new Worker('/stockfish/stockfish-19-lite-single.js');
     workerRef.current = worker;
+    isSearchingRef.current = false;
+    stopRequestedRef.current = false;
+    setIsReady(false);
 
     worker.onmessage = (e: MessageEvent<string>) => {
       const message = e.data;
@@ -39,25 +61,42 @@ export function useStockfish() {
       } else if (message.startsWith('bestmove')) {
         const parts = message.split(' ');
         setBestMove(parts[1] && parts[1] !== '(none)' ? parts[1] : null);
+        isSearchingRef.current = false;
+        const next = pendingRef.current;
+        if (next) {
+          pendingRef.current = null;
+          runSearch(next);
+        }
       }
     };
 
-    worker.postMessage('uci');
-
-    return () => {
+    worker.onerror = () => {
       worker.terminate();
+      startWorker();
     };
-  }, []);
+
+    worker.postMessage('uci');
+  }, [runSearch]);
+
+  useEffect(() => {
+    startWorker();
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [startWorker]);
 
   const evaluate = useCallback((fen: string, depth = 16) => {
-    const worker = workerRef.current;
-    if (!worker || !isReady) return;
-    setBestMove(null);
-    setLine(null);
-    worker.postMessage('stop');
-    worker.postMessage(`position fen ${fen}`);
-    worker.postMessage(`go depth ${depth}`);
-  }, [isReady]);
+    if (!isReady) return;
+    if (isSearchingRef.current) {
+      pendingRef.current = { fen, depth };
+      if (!stopRequestedRef.current) {
+        stopRequestedRef.current = true;
+        workerRef.current?.postMessage('stop');
+      }
+      return;
+    }
+    runSearch({ fen, depth });
+  }, [isReady, runSearch]);
 
   return { isReady, line, bestMove, evaluate };
 }
