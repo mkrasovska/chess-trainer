@@ -58,9 +58,11 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleFile(file);
+          e.target.value = '';
         }}
       />
-      {status && <p className="archive-import__status">{status}</p>}
+      {isLoading && <p className="archive-import__status">Reading archive...</p>}
+      {!isLoading && status && <p className="archive-import__status">{status}</p>}
 
       {games.length > 0 && (
         <>
