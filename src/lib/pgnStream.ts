@@ -31,10 +31,10 @@ function matchesPlayer(gameText: string, matcher: RegExp): PgnGame | null {
   return { raw: gameText.trim(), headers };
 }
 
-export async function scanPgnFile(file: File, options: ScanOptions): Promise<ScanResult> {
+export async function scanPgnFile(source: Blob, options: ScanOptions): Promise<ScanResult> {
   const { term, maxResults, onProgress, shouldStop } = options;
   const matcher = new RegExp(escapeRegExp(term.trim()), 'i');
-  const reader = file.stream().getReader();
+  const reader = source.stream().getReader();
   const decoder = new TextDecoder();
 
   const games: PgnGame[] = [];
@@ -77,10 +77,44 @@ export async function scanPgnFile(file: File, options: ScanOptions): Promise<Sca
 
     if (!hitLimit && !cancelled) {
       buffer += decoder.decode();
-      if (buffer.trim()) collect(buffer);
+      if (buffer.trim() && collect(buffer)) {
+        hitLimit = true;
+      }
     }
   } finally {
     await reader.cancel().catch(() => undefined);
+  }
+
+  return { games, hitLimit, cancelled };
+}
+
+export type LibrarySource = {
+  id: string;
+  blob: Blob;
+};
+
+export async function scanLibrary(sources: LibrarySource[], options: ScanOptions): Promise<ScanResult> {
+  const { maxResults, onProgress, shouldStop } = options;
+
+  const games: PgnGame[] = [];
+  let hitLimit = false;
+  let cancelled = false;
+  let bytesBefore = 0;
+
+  for (const source of sources) {
+    if (hitLimit || cancelled) break;
+
+    const result = await scanPgnFile(source.blob, {
+      ...options,
+      maxResults: maxResults - games.length,
+      onProgress: (bytesRead) => onProgress?.(bytesBefore + bytesRead),
+      shouldStop,
+    });
+
+    bytesBefore += source.blob.size;
+    games.push(...result.games);
+    if (result.hitLimit) hitLimit = true;
+    if (result.cancelled) cancelled = true;
   }
 
   return { games, hitLimit, cancelled };

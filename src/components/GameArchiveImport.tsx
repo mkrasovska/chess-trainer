@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractPgnFromFile, IN_MEMORY_LIMIT_BYTES } from '../lib/archiveFile';
-import { scanPgnFile } from '../lib/pgnStream';
-import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
+import { addArchiveToLibrary, getLibraryBlobs, listLibrary, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
+import { scanLibrary } from '../lib/pgnStream';
+import { type PgnGame } from '../lib/pgnUtils';
 
 type GameArchiveImportProps = {
   onSelectGame: (pgn: string) => void;
@@ -16,127 +17,141 @@ function formatSize(bytes: number): string {
 }
 
 export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
-  const [games, setGames] = useState<PgnGame[]>([]);
+  const [library, setLibrary] = useState<LibraryEntry[]>([]);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addStatus, setAddStatus] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [largeFile, setLargeFile] = useState<File | null>(null);
+  const [games, setGames] = useState<PgnGame[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const cancelRef = useRef(false);
 
-  const handleFile = async (file: File) => {
-    setGames([]);
-    setProgress(0);
-    setSearch('');
+  const refreshLibrary = () => listLibrary().then(setLibrary);
 
-    const isZip = file.name.toLowerCase().endsWith('.zip');
-    if (file.size > IN_MEMORY_LIMIT_BYTES) {
-      if (isZip) {
-        setLargeFile(null);
-        setStatus(`This archive is ${formatSize(file.size)} — too large to unzip in the browser. Extract the .pgn first, then load that.`);
-        return;
-      }
-      setLargeFile(file);
-      setStatus(`${file.name} (${formatSize(file.size)}) ready. Enter a player name and search — the file is scanned without loading it into memory.`);
-      return;
-    }
+  useEffect(() => {
+    refreshLibrary();
+  }, []);
 
-    setLargeFile(null);
-    setIsLoading(true);
-    setStatus(null);
+  const totalSize = useMemo(() => library.reduce((sum, entry) => sum + entry.size, 0), [library]);
+
+  const handleAdd = async (file: File) => {
+    setIsAdding(true);
+    setAddStatus(null);
     try {
-      const pgnText = await extractPgnFromFile(file);
-      const parsed = loadPgnGames(pgnText);
-      setGames(parsed);
-      setStatus(`Loaded ${parsed.length} games.`);
+      if (file.name.toLowerCase().endsWith('.zip')) {
+        if (file.size > IN_MEMORY_LIMIT_BYTES) {
+          setAddStatus(`This archive is ${formatSize(file.size)} — too large to unzip in the browser. Extract the .pgn first, then add that.`);
+          return;
+        }
+        const pgnText = await extractPgnFromFile(file);
+        await addArchiveToLibrary(file.name.replace(/\.zip$/i, '.pgn'), new Blob([pgnText], { type: 'text/plain' }));
+      } else {
+        await addArchiveToLibrary(file.name, file);
+      }
+      setAddStatus(`Added ${file.name} (${formatSize(file.size)}) to the library.`);
+      await refreshLibrary();
     } catch {
-      setStatus('Could not read this file. Expected a TWIC .zip or a .pgn file.');
+      setAddStatus('Could not read this file. Expected a .zip or .pgn file.');
     } finally {
-      setIsLoading(false);
+      setIsAdding(false);
     }
   };
 
-  const handleScan = async () => {
-    if (!largeFile || !search.trim()) return;
+  const handleRemove = async (id: string) => {
+    await removeFromLibrary(id);
+    await refreshLibrary();
+  };
+
+  const handleSearch = async () => {
+    if (!search.trim() || library.length === 0) return;
     cancelRef.current = false;
-    setIsLoading(true);
+    setIsSearching(true);
     setGames([]);
     setProgress(0);
-    setStatus(null);
+    setSearchStatus(null);
     try {
-      const result = await scanPgnFile(largeFile, {
+      const sources = await getLibraryBlobs();
+      const result = await scanLibrary(sources, {
         term: search,
         maxResults: MAX_RESULTS,
-        onProgress: (bytesRead) => setProgress(bytesRead / largeFile.size),
+        onProgress: (bytesRead) => setProgress(totalSize > 0 ? bytesRead / totalSize : 0),
         shouldStop: () => cancelRef.current,
       });
       setGames(result.games);
       if (result.cancelled) {
-        setStatus(`Search cancelled — ${result.games.length} games found so far.`);
+        setSearchStatus(`Search cancelled — ${result.games.length} games found so far.`);
       } else if (result.hitLimit) {
-        setStatus(`Stopped at the first ${MAX_RESULTS} matches — refine the name for fewer.`);
+        setSearchStatus(`Stopped at the first ${MAX_RESULTS} matches — refine the name for fewer.`);
       } else {
-        setStatus(`Found ${result.games.length} games for "${search.trim()}".`);
+        setSearchStatus(`Found ${result.games.length} games for "${search.trim()}".`);
       }
     } catch {
-      setStatus('Could not read this file.');
+      setSearchStatus('Could not search the library.');
     } finally {
-      setIsLoading(false);
+      setIsSearching(false);
     }
   };
-
-  const filtered = useMemo(() => {
-    if (largeFile) return games;
-    const term = search.trim().toLowerCase();
-    const matches = term
-      ? games.filter((game) => {
-          const white = game.headers.White?.toLowerCase() ?? '';
-          const black = game.headers.Black?.toLowerCase() ?? '';
-          return white.includes(term) || black.includes(term);
-        })
-      : games;
-    return matches.slice(0, MAX_RESULTS);
-  }, [games, search, largeFile]);
 
   return (
     <div className="archive-import">
       <p className="archive-import__hint">
-        Load a .pgn database, or a games archive from{' '}
+        Build a local game database from{' '}
         <a href="https://theweekinchess.com/twic" target="_blank" rel="noreferrer">
           The Week in Chess
-        </a>
-        .
+        </a>{' '}
+        issues, or any .pgn database — added files stay in your browser between visits.
       </p>
+
       <input
         type="file"
         accept=".zip,.pgn"
-        disabled={isLoading}
+        disabled={isAdding}
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) handleFile(file);
+          if (file) handleAdd(file);
           e.target.value = '';
         }}
       />
+      {isAdding && <p className="archive-import__status">Adding to library...</p>}
+      {!isAdding && addStatus && <p className="archive-import__status">{addStatus}</p>}
 
-      {(largeFile || games.length > 0) && (
+      {library.length > 0 && (
+        <div className="archive-import__library">
+          <p className="archive-import__library-total">
+            {library.length} file{library.length === 1 ? '' : 's'} · {formatSize(totalSize)} total
+          </p>
+          {library.map((entry) => (
+            <div className="archive-import__library-row" key={entry.id}>
+              <span className="archive-import__library-name">{entry.name}</span>
+              <span className="archive-import__library-size">{formatSize(entry.size)}</span>
+              <button type="button" onClick={() => handleRemove(entry.id)} aria-label={`Remove ${entry.name}`}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {library.length > 0 && (
         <div className="archive-import__search-row">
           <input
             type="text"
             className="archive-import__search"
-            placeholder="Filter by player name..."
+            placeholder="Search library by player name..."
             value={search}
-            disabled={isLoading}
+            disabled={isSearching}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && largeFile) handleScan();
+              if (e.key === 'Enter') handleSearch();
             }}
           />
-          {largeFile && !isLoading && (
-            <button type="button" disabled={!search.trim()} onClick={handleScan}>
+          {!isSearching && (
+            <button type="button" disabled={!search.trim()} onClick={handleSearch}>
               Search
             </button>
           )}
-          {largeFile && isLoading && (
+          {isSearching && (
             <button type="button" onClick={() => { cancelRef.current = true; }}>
               Cancel
             </button>
@@ -144,15 +159,12 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
         </div>
       )}
 
-      {isLoading && largeFile && (
-        <p className="archive-import__status">Scanning... {Math.round(progress * 100)}%</p>
-      )}
-      {isLoading && !largeFile && <p className="archive-import__status">Reading archive...</p>}
-      {!isLoading && status && <p className="archive-import__status">{status}</p>}
+      {isSearching && <p className="archive-import__status">Scanning... {Math.round(progress * 100)}%</p>}
+      {!isSearching && searchStatus && <p className="archive-import__status">{searchStatus}</p>}
 
-      {filtered.length > 0 && (
+      {games.length > 0 && (
         <div className="archive-import__results">
-          {filtered.map((game, index) => (
+          {games.map((game, index) => (
             <button
               type="button"
               key={index}
@@ -167,9 +179,6 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
               </span>
             </button>
           ))}
-          {!largeFile && games.length > MAX_RESULTS && filtered.length === MAX_RESULTS && (
-            <p className="archive-import__more-hint">Showing first {MAX_RESULTS} results — refine your search.</p>
-          )}
         </div>
       )}
     </div>
