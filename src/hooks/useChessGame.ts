@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Chess, type Move } from 'chess.js';
 
 function computeFens(moves: Move[]): string[] {
@@ -11,15 +11,34 @@ function computeFens(moves: Move[]): string[] {
   return fens;
 }
 
+type Branch = {
+  startPly: number;
+  game: Chess;
+};
+
 export function useChessGame() {
   const [game] = useState(() => new Chess());
   const [moves, setMoves] = useState<Move[]>([]);
   const [currentPly, setCurrentPly] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const branchRef = useRef<Branch | null>(null);
+  const [branchMoves, setBranchMoves] = useState<Move[]>([]);
+  const [isBranching, setIsBranching] = useState(false);
+
   const fens = useMemo(() => computeFens(moves), [moves]);
-  const currentFen = fens[currentPly] ?? fens[fens.length - 1];
-  const isAtLatest = currentPly === moves.length;
+
+  const exitBranch = useCallback(() => {
+    branchRef.current = null;
+    setBranchMoves([]);
+    setIsBranching(false);
+  }, []);
+
+  const currentFen = isBranching && branchRef.current
+    ? branchRef.current.game.fen()
+    : (fens[currentPly] ?? fens[fens.length - 1]);
+
+  const isAtLatest = !isBranching && currentPly === moves.length;
 
   const loadPgn = useCallback((pgn: string) => {
     try {
@@ -27,47 +46,101 @@ export function useChessGame() {
       const loadedMoves = game.history({ verbose: true });
       setMoves(loadedMoves);
       setCurrentPly(loadedMoves.length);
+      exitBranch();
       setError(null);
     } catch {
       setError('Could not parse this PGN.');
     }
-  }, [game]);
+  }, [game, exitBranch]);
 
   const makeMove = useCallback((from: string, to: string, promotion = 'q') => {
-    if (!isAtLatest) return false;
-    try {
-      game.move({ from, to, promotion });
-      const updatedMoves = game.history({ verbose: true });
-      setMoves(updatedMoves);
-      setCurrentPly(updatedMoves.length);
-      setError(null);
+    // At the end of the mainline with no active branch: just extend the game as before.
+    if (!isBranching && currentPly === moves.length) {
+      try {
+        game.move({ from, to, promotion });
+        const updatedMoves = game.history({ verbose: true });
+        setMoves(updatedMoves);
+        setCurrentPly(updatedMoves.length);
+        setError(null);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Starting a new branch from wherever we currently are.
+    if (!isBranching) {
+      const startFen = fens[currentPly];
+      const branchGame = new Chess(startFen);
+      try {
+        branchGame.move({ from, to, promotion });
+      } catch {
+        return false;
+      }
+      branchRef.current = { startPly: currentPly, game: branchGame };
+      setBranchMoves(branchGame.history({ verbose: true }));
+      setIsBranching(true);
       return true;
+    }
+
+    // Already branching: keep extending it.
+    const branch = branchRef.current;
+    if (!branch) return false;
+    try {
+      branch.game.move({ from, to, promotion });
     } catch {
       return false;
     }
-  }, [game, isAtLatest]);
+    setBranchMoves(branch.game.history({ verbose: true }));
+    return true;
+  }, [game, moves, currentPly, fens, isBranching]);
 
   const goToPly = useCallback((ply: number) => {
+    exitBranch();
     setCurrentPly(Math.max(0, Math.min(ply, moves.length)));
-  }, [moves.length]);
+  }, [moves.length, exitBranch]);
 
   const goFirst = useCallback(() => goToPly(0), [goToPly]);
-  const goPrev = useCallback(() => goToPly(currentPly - 1), [goToPly, currentPly]);
-  const goNext = useCallback(() => goToPly(currentPly + 1), [goToPly, currentPly]);
   const goLast = useCallback(() => goToPly(moves.length), [goToPly, moves.length]);
+
+  const goPrev = useCallback(() => {
+    if (isBranching && branchRef.current) {
+      branchRef.current.game.undo();
+      const remaining = branchRef.current.game.history({ verbose: true });
+      if (remaining.length === 0) {
+        exitBranch();
+      } else {
+        setBranchMoves(remaining);
+      }
+      return;
+    }
+    goToPly(currentPly - 1);
+  }, [isBranching, currentPly, goToPly, exitBranch]);
+
+  const goNext = useCallback(() => {
+    if (isBranching) return;
+    goToPly(currentPly + 1);
+  }, [isBranching, currentPly, goToPly]);
+
+  const returnToMainline = useCallback(() => {
+    exitBranch();
+  }, [exitBranch]);
 
   const reset = useCallback(() => {
     game.reset();
     setMoves([]);
     setCurrentPly(0);
     setError(null);
-  }, [game]);
+    exitBranch();
+  }, [game, exitBranch]);
 
   return {
     moves,
     currentPly,
     currentFen,
     isAtLatest,
+    isBranching,
+    branchMoves,
     error,
     loadPgn,
     makeMove,
@@ -76,6 +149,7 @@ export function useChessGame() {
     goPrev,
     goNext,
     goLast,
+    returnToMainline,
     reset,
   };
 }

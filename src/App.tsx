@@ -29,6 +29,8 @@ function App() {
     moves,
     currentPly,
     currentFen,
+    isBranching,
+    branchMoves,
     error,
     loadPgn,
     makeMove,
@@ -37,6 +39,7 @@ function App() {
     goPrev,
     goNext,
     goLast,
+    returnToMainline,
   } = useChessGame();
 
   const { isReady, line, bestMove, evaluate } = useStockfish();
@@ -108,11 +111,21 @@ function App() {
           <div className="app__board">
             <Board fen={currentFen} onMove={makeMove} arrows={arrows} />
             <div className="app__nav">
-              <button type="button" onClick={goFirst}>{'|<'}</button>
+              <button type="button" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
               <button type="button" onClick={goPrev}>{'<'}</button>
-              <button type="button" onClick={goNext}>{'>'}</button>
-              <button type="button" onClick={goLast}>{'>|'}</button>
+              <button type="button" onClick={goNext} disabled={isBranching}>{'>'}</button>
+              <button type="button" onClick={goLast} disabled={isBranching}>{'>|'}</button>
             </div>
+            {isBranching && (
+              <div className="app__branch-banner">
+                <span>
+                  Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
+                </span>
+                <button type="button" onClick={returnToMainline}>
+                  ← back to game
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="app__sidebar">
