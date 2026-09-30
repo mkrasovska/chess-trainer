@@ -10,8 +10,25 @@ type GamesTableProps = {
 
 type Color = 'white' | 'black';
 type Outcome = 'win' | 'loss' | 'draw' | 'unknown';
-type ColorFilter = 'all' | Color;
-type OutcomeFilter = 'all' | Exclude<Outcome, 'unknown'>;
+type FilterableOutcome = Exclude<Outcome, 'unknown'>;
+
+const COLOR_OPTIONS: { value: Color; label: string }[] = [
+  { value: 'white', label: 'White' },
+  { value: 'black', label: 'Black' },
+];
+
+const OUTCOME_OPTIONS: { value: FilterableOutcome; label: string }[] = [
+  { value: 'win', label: 'Wins' },
+  { value: 'loss', label: 'Losses' },
+  { value: 'draw', label: 'Draws' },
+];
+
+function toggle<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
 
 function getYear(headers: Record<string, string>): string {
   const date = headers.Date ?? headers.EventDate ?? '';
@@ -40,8 +57,8 @@ function getOutcome(headers: Record<string, string>, color: Color | null): Outco
 }
 
 export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTableProps) {
-  const [colorFilter, setColorFilter] = useState<ColorFilter>('all');
-  const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>('all');
+  const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
+  const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
 
   const rows = useMemo(
     () =>
@@ -56,8 +73,8 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     () =>
       rows.filter(
         (row) =>
-          (colorFilter === 'all' || row.color === colorFilter) &&
-          (outcomeFilter === 'all' || row.outcome === outcomeFilter),
+          (colorFilter.size === 0 || (row.color !== null && colorFilter.has(row.color))) &&
+          (outcomeFilter.size === 0 || (row.outcome !== 'unknown' && outcomeFilter.has(row.outcome))),
       ),
     [rows, colorFilter, outcomeFilter],
   );
@@ -65,23 +82,32 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   return (
     <div>
       <div className="games-table__filters">
-        <label>
-          Color:{' '}
-          <select value={colorFilter} onChange={(e) => setColorFilter(e.target.value as ColorFilter)}>
-            <option value="all">All</option>
-            <option value="white">White</option>
-            <option value="black">Black</option>
-          </select>
-        </label>
-        <label>
-          Result:{' '}
-          <select value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as OutcomeFilter)}>
-            <option value="all">All</option>
-            <option value="win">Wins</option>
-            <option value="loss">Losses</option>
-            <option value="draw">Draws</option>
-          </select>
-        </label>
+        <span className="games-table__filter-group">
+          Color:
+          {COLOR_OPTIONS.map((option) => (
+            <label key={option.value}>
+              <input
+                type="checkbox"
+                checked={colorFilter.has(option.value)}
+                onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
+              />
+              {option.label}
+            </label>
+          ))}
+        </span>
+        <span className="games-table__filter-group">
+          Result:
+          {OUTCOME_OPTIONS.map((option) => (
+            <label key={option.value}>
+              <input
+                type="checkbox"
+                checked={outcomeFilter.has(option.value)}
+                onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
+              />
+              {option.label}
+            </label>
+          ))}
+        </span>
         <span className="games-table__filters-count">
           Showing {filteredRows.length} of {games.length} games
         </span>

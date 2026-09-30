@@ -352,13 +352,23 @@
 .games-table__filters {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   margin-bottom: 8px;
   font-size: 13px;
+  flex-wrap: wrap;
 }
 
-.games-table__filters select {
-  padding: 4px 6px;
+.games-table__filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.games-table__filter-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 
 .games-table__filters-count {
