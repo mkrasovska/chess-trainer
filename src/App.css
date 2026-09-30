@@ -1,5 +1,5 @@
 .app {
-  max-width: 960px;
+  max-width: 1760px;
   margin: 0 auto;
   padding: 24px 16px;
 }
@@ -337,4 +337,49 @@
 .move-list__move--active {
   background: var(--accent-bg, rgba(170, 59, 255, 0.1));
   font-weight: 600;
+}
+
+.games-table-section {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.games-table-wrap {
+  width: 100%;
+  max-height: 600px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+}
+
+.games-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.games-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--code-bg, #f4f3ec);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #e5e4e7);
+}
+
+.games-table td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border, #e5e4e7);
+}
+
+.games-table__row {
+  cursor: pointer;
+}
+
+.games-table__row:hover {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+}
+
+.games-table__player--selected {
+  font-weight: 700;
 }

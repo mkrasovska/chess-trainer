@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Board } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
+import { GamesTable } from './components/GamesTable';
 import { LichessImport } from './components/LichessImport';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
 import { useChessGame } from './hooks/useChessGame';
 import { useStockfish } from './hooks/useStockfish';
+import { getLibraryBlobs } from './lib/gameLibrary';
+import { scanGamesForPlayer, type PlayerMatch } from './lib/pgnStream';
+import type { PgnGame } from './lib/pgnUtils';
 import './App.css';
 
 type ImportTab = 'paste' | 'archive' | 'lichess';
+const MAX_GAMES = 200;
 
 function uciToArrow(uciMove: string) {
   return {
@@ -37,12 +42,57 @@ function App() {
   const { isReady, line, bestMove, evaluate } = useStockfish();
   const [importTab, setImportTab] = useState<ImportTab>('paste');
 
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
+  const [playerGames, setPlayerGames] = useState<PgnGame[]>([]);
+  const [isLoadingGames, setIsLoadingGames] = useState(false);
+  const [gamesStatus, setGamesStatus] = useState<string | null>(null);
+  const [gamesProgress, setGamesProgress] = useState(0);
+  const cancelGamesRef = useRef(false);
+
   useEffect(() => {
     if (isReady) evaluate(currentFen);
   }, [isReady, currentFen, evaluate]);
 
   const sideToMove = (currentFen.split(' ')[1] === 'b' ? 'b' : 'w') as 'w' | 'b';
   const arrows = useMemo(() => (bestMove ? [uciToArrow(bestMove)] : []), [bestMove]);
+
+  const handleBackToPlayers = () => {
+    setSelectedPlayer(null);
+    setPlayerGames([]);
+    setGamesStatus(null);
+  };
+
+  const handleSelectPlayer = async (player: PlayerMatch) => {
+    cancelGamesRef.current = false;
+    setSelectedPlayer(player);
+    setPlayerGames([]);
+    setIsLoadingGames(true);
+    setGamesProgress(0);
+    setGamesStatus(null);
+    try {
+      const sources = await getLibraryBlobs();
+      const totalSize = sources.reduce((sum, source) => sum + source.blob.size, 0);
+      const result = await scanGamesForPlayer(sources, {
+        name: player.name,
+        fideId: player.fideId,
+        maxResults: MAX_GAMES,
+        onProgress: (bytesRead) => setGamesProgress(totalSize > 0 ? bytesRead / totalSize : 0),
+        shouldStop: () => cancelGamesRef.current,
+      });
+      setPlayerGames(result.games);
+      if (result.cancelled) {
+        setGamesStatus(`Search cancelled — ${result.games.length} games found so far.`);
+      } else if (result.hitLimit) {
+        setGamesStatus(`Stopped at the first ${MAX_GAMES} games.`);
+      } else {
+        setGamesStatus(`Found ${result.games.length} game${result.games.length === 1 ? '' : 's'}.`);
+      }
+    } catch {
+      setGamesStatus('Could not load games for this player.');
+    } finally {
+      setIsLoadingGames(false);
+    }
+  };
 
   return (
     <div className="app">
@@ -90,11 +140,34 @@ function App() {
             </button>
           </div>
           {importTab === 'paste' && <PgnImport onLoad={loadPgn} error={error} />}
-          {importTab === 'archive' && <GameArchiveImport onSelectGame={loadPgn} />}
+          {importTab === 'archive' && (
+            <GameArchiveImport
+              selectedPlayer={selectedPlayer}
+              onSelectPlayer={handleSelectPlayer}
+              onBackToPlayers={handleBackToPlayers}
+            />
+          )}
           {importTab === 'lichess' && <LichessImport onSelectGame={loadPgn} />}
           <MoveList moves={moves} currentPly={currentPly} onSelectPly={goToPly} />
         </div>
       </div>
+
+      {importTab === 'archive' && selectedPlayer && (
+        <div className="games-table-section">
+          {isLoadingGames && (
+            <p className="archive-import__status">
+              Loading games... {Math.round(gamesProgress * 100)}%{' '}
+              <button type="button" onClick={() => { cancelGamesRef.current = true; }}>
+                Cancel
+              </button>
+            </p>
+          )}
+          {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
+          {playerGames.length > 0 && (
+            <GamesTable games={playerGames} onSelectGame={loadPgn} selectedPlayer={selectedPlayer} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

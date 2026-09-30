@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractPgnFromFile, IN_MEMORY_LIMIT_BYTES } from '../lib/archiveFile';
 import { addArchiveToLibrary, getLibraryBlobs, listLibrary, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
-import { scanGamesForPlayer, scanPlayers, type PlayerMatch } from '../lib/pgnStream';
-import { type PgnGame } from '../lib/pgnUtils';
+import { scanPlayers, type PlayerMatch } from '../lib/pgnStream';
 
 type GameArchiveImportProps = {
-  onSelectGame: (pgn: string) => void;
+  selectedPlayer: PlayerMatch | null;
+  onSelectPlayer: (player: PlayerMatch) => void;
+  onBackToPlayers: () => void;
 };
 
 const MAX_PLAYERS = 100;
-const MAX_GAMES = 200;
 
 function formatSize(bytes: number): string {
   const gb = bytes / 1024 ** 3;
@@ -17,7 +17,7 @@ function formatSize(bytes: number): string {
   return `${Math.round(bytes / 1024 ** 2)} MB`;
 }
 
-export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
+export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlayers }: GameArchiveImportProps) {
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState<string | null>(null);
@@ -27,12 +27,6 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
   const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
   const [playerSearchStatus, setPlayerSearchStatus] = useState<string | null>(null);
   const [playerProgress, setPlayerProgress] = useState(0);
-
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
-  const [games, setGames] = useState<PgnGame[]>([]);
-  const [isLoadingGames, setIsLoadingGames] = useState(false);
-  const [gamesStatus, setGamesStatus] = useState<string | null>(null);
-  const [gamesProgress, setGamesProgress] = useState(0);
 
   const cancelRef = useRef(false);
 
@@ -72,16 +66,10 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
     await refreshLibrary();
   };
 
-  const resetSelection = () => {
-    setSelectedPlayer(null);
-    setGames([]);
-    setGamesStatus(null);
-  };
-
   const handleFindPlayers = async () => {
     if (!nameTerm.trim() || library.length === 0) return;
     cancelRef.current = false;
-    resetSelection();
+    onBackToPlayers();
     setIsSearchingPlayers(true);
     setPlayers(null);
     setPlayerProgress(0);
@@ -108,37 +96,6 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
       setPlayerSearchStatus('Could not search the library.');
     } finally {
       setIsSearchingPlayers(false);
-    }
-  };
-
-  const handleSelectPlayer = async (player: PlayerMatch) => {
-    cancelRef.current = false;
-    setSelectedPlayer(player);
-    setGames([]);
-    setIsLoadingGames(true);
-    setGamesProgress(0);
-    setGamesStatus(null);
-    try {
-      const sources = await getLibraryBlobs();
-      const result = await scanGamesForPlayer(sources, {
-        name: player.name,
-        fideId: player.fideId,
-        maxResults: MAX_GAMES,
-        onProgress: (bytesRead) => setGamesProgress(totalSize > 0 ? bytesRead / totalSize : 0),
-        shouldStop: () => cancelRef.current,
-      });
-      setGames(result.games);
-      if (result.cancelled) {
-        setGamesStatus(`Search cancelled — ${result.games.length} games found so far.`);
-      } else if (result.hitLimit) {
-        setGamesStatus(`Stopped at the first ${MAX_GAMES} games.`);
-      } else {
-        setGamesStatus(`Found ${result.games.length} game${result.games.length === 1 ? '' : 's'}.`);
-      }
-    } catch {
-      setGamesStatus('Could not load games for this player.');
-    } finally {
-      setIsLoadingGames(false);
     }
   };
 
@@ -218,7 +175,7 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
               type="button"
               key={`${player.name}:${player.fideId ?? ''}`}
               className="archive-import__result"
-              onClick={() => handleSelectPlayer(player)}
+              onClick={() => onSelectPlayer(player)}
             >
               <span className="archive-import__players">{player.name}</span>
               <span className="archive-import__meta">
@@ -231,40 +188,15 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
       )}
 
       {selectedPlayer && (
-        <>
-          <div className="archive-import__selected-player">
-            <span>
-              {selectedPlayer.name}
-              {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
-            </span>
-            <button type="button" onClick={resetSelection}>
-              ← back to players
-            </button>
-          </div>
-
-          {isLoadingGames && <p className="archive-import__status">Loading games... {Math.round(gamesProgress * 100)}%</p>}
-          {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
-
-          {games.length > 0 && (
-            <div className="archive-import__results">
-              {games.map((game, index) => (
-                <button
-                  type="button"
-                  key={index}
-                  className="archive-import__result"
-                  onClick={() => onSelectGame(game.raw)}
-                >
-                  <span className="archive-import__players">
-                    {game.headers.White ?? '?'} vs {game.headers.Black ?? '?'}
-                  </span>
-                  <span className="archive-import__meta">
-                    {game.headers.Event ?? ''} {game.headers.Result ?? ''}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </>
+        <div className="archive-import__selected-player">
+          <span>
+            {selectedPlayer.name}
+            {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
+          </span>
+          <button type="button" onClick={onBackToPlayers}>
+            ← back to players
+          </button>
+        </div>
       )}
     </div>
   );
