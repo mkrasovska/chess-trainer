@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useGeminiRequest } from '../hooks/useGeminiRequest';
+import { useAiRequest } from '../hooks/useAiRequest';
 import { createAnalysisEngine } from '../lib/analysisEngine';
+import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
 import { buildMoveAnalysisPrompt } from '../lib/moveAnalysisPrompt';
 
 const ANALYSIS_DEPTH = 16;
@@ -13,8 +14,9 @@ type MoveAnalysisProps = {
 };
 
 export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveAnalysisProps) {
-  const { isLoading: isAsking, result, error, ask, clear } = useGeminiRequest();
+  const { isLoading: isAsking, result, error, ask, clear } = useAiRequest();
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const providerLabel = AI_PROVIDERS.find((p) => p.id === getAiProvider())?.label ?? 'AI';
 
   const handleAnalyze = async () => {
     clear();
@@ -40,7 +42,7 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
   return (
     <div className="move-analysis">
       <button type="button" onClick={handleAnalyze} disabled={isBusy}>
-        {isBusy ? (isEvaluating ? 'Evaluating...' : 'Asking Gemini...') : `Analyze ${moveSan}`}
+        {isBusy ? (isEvaluating ? 'Evaluating...' : `Asking ${providerLabel}...`) : `Analyze ${moveSan}`}
       </button>
       {error && <p className="move-analysis__error">{error}</p>}
       {result && <p className="move-analysis__result">{result}</p>}

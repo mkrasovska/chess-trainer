@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
-import { askGemini } from '../lib/gemini';
+import { ask as askProvider } from '../lib/ai/provider';
 
-export function useGeminiRequest() {
+export function useAiRequest() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -11,10 +11,10 @@ export function useGeminiRequest() {
     setError(null);
     setResult(null);
     try {
-      const text = await askGemini(prompt);
+      const text = await askProvider(prompt);
       setResult(text);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gemini request failed.');
+      setError(err instanceof Error ? err.message : 'AI request failed.');
     } finally {
       setIsLoading(false);
     }

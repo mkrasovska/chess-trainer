@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useGeminiRequest } from '../hooks/useGeminiRequest';
+import { useAiRequest } from '../hooks/useAiRequest';
+import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
 import {
   buildPlayerProfilePrompt,
   ECO_LABELS,
@@ -54,7 +55,8 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const [openingNameFilter, setOpeningNameFilter] = useState<Set<string>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
-  const { isLoading: isAskingAboutPlayer, result: aboutPlayerResult, error: aboutPlayerError, ask: askAboutPlayer } = useGeminiRequest();
+  const { isLoading: isAskingAboutPlayer, result: aboutPlayerResult, error: aboutPlayerError, ask: askAboutPlayer } = useAiRequest();
+  const providerLabel = AI_PROVIDERS.find((p) => p.id === getAiProvider())?.label ?? 'AI';
 
   const rows = useMemo(
     () =>
@@ -211,7 +213,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           disabled={isAskingAboutPlayer || filteredRows.length === 0}
           onClick={() => askAboutPlayer(buildPlayerProfilePrompt(filteredRows.map((row) => row.game), selectedPlayer))}
         >
-          {isAskingAboutPlayer ? 'Asking Gemini...' : 'About player'}
+          {isAskingAboutPlayer ? `Asking ${providerLabel}...` : 'About player'}
         </button>
       </div>
 
