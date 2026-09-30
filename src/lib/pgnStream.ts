@@ -1,53 +1,24 @@
 import { parsePgnHeaders, type PgnGame } from './pgnUtils';
 
-export type ScanOptions = {
-  term: string;
-  maxResults: number;
-  onProgress?: (bytesRead: number) => void;
-  shouldStop?: () => boolean;
-};
-
-export type ScanResult = {
-  games: PgnGame[];
-  hitLimit: boolean;
-  cancelled: boolean;
+export type LibrarySource = {
+  id: string;
+  blob: Blob;
 };
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function headerBlock(gameText: string): string {
-  const end = gameText.indexOf('\n\n');
-  return end === -1 ? gameText : gameText.slice(0, end);
-}
-
-function matchesPlayer(gameText: string, matcher: RegExp): PgnGame | null {
-  if (!matcher.test(headerBlock(gameText))) return null;
-  const headers = parsePgnHeaders(gameText);
-  const white = headers.White ?? '';
-  const black = headers.Black ?? '';
-  if (!matcher.test(white) && !matcher.test(black)) return null;
-  return { raw: gameText.trim(), headers };
-}
-
-export async function scanPgnFile(source: Blob, options: ScanOptions): Promise<ScanResult> {
-  const { term, maxResults, onProgress, shouldStop } = options;
-  const matcher = new RegExp(escapeRegExp(term.trim()), 'i');
+/**
+ * Streams a blob and yields each raw game's text as soon as its boundary is found,
+ * without ever holding the whole file in memory. Shared by every scan below so the
+ * chunk-boundary splitting logic (and its edge cases) only has to be correct once.
+ */
+async function* iteratePgnSegments(source: Blob, onProgress?: (bytesRead: number) => void): AsyncGenerator<string> {
   const reader = source.stream().getReader();
   const decoder = new TextDecoder();
-
-  const games: PgnGame[] = [];
   let buffer = '';
   let bytesRead = 0;
-  let hitLimit = false;
-  let cancelled = false;
-
-  const collect = (gameText: string) => {
-    const match = matchesPlayer(gameText, matcher);
-    if (match) games.push(match);
-    return games.length >= maxResults;
-  };
 
   try {
     while (true) {
@@ -62,59 +33,130 @@ export async function scanPgnFile(source: Blob, options: ScanOptions): Promise<S
       buffer = segments.pop() ?? '';
 
       for (const segment of segments) {
-        if (segment.trim() && collect(segment)) {
-          hitLimit = true;
-          break;
-        }
-      }
-
-      if (hitLimit) break;
-      if (shouldStop?.()) {
-        cancelled = true;
-        break;
+        if (segment.trim()) yield segment;
       }
     }
 
-    if (!hitLimit && !cancelled) {
-      buffer += decoder.decode();
-      if (buffer.trim() && collect(buffer)) {
-        hitLimit = true;
-      }
-    }
+    buffer += decoder.decode();
+    if (buffer.trim()) yield buffer;
   } finally {
     await reader.cancel().catch(() => undefined);
   }
-
-  return { games, hitLimit, cancelled };
 }
 
-export type LibrarySource = {
-  id: string;
-  blob: Blob;
+// --- Phase 1: find distinct player identities matching a name -------------------
+
+export type PlayerMatch = {
+  name: string;
+  fideId: string | null;
+  gameCount: number;
 };
 
-export async function scanLibrary(sources: LibrarySource[], options: ScanOptions): Promise<ScanResult> {
-  const { maxResults, onProgress, shouldStop } = options;
+export type PlayerScanOptions = {
+  term: string;
+  maxPlayers: number;
+  onProgress?: (bytesRead: number) => void;
+  shouldStop?: () => boolean;
+};
 
+export type PlayerScanResult = {
+  players: PlayerMatch[];
+  hitLimit: boolean;
+  cancelled: boolean;
+};
+
+function playerKey(name: string, fideId: string | null): string {
+  return fideId ? `id:${fideId}` : `name:${name}`;
+}
+
+export async function scanPlayers(sources: LibrarySource[], options: PlayerScanOptions): Promise<PlayerScanResult> {
+  const { term, maxPlayers, onProgress, shouldStop } = options;
+  const matcher = new RegExp(escapeRegExp(term.trim()), 'i');
+  const found = new Map<string, PlayerMatch>();
+  let hitLimit = false;
+  let cancelled = false;
+  let bytesBefore = 0;
+
+  outer: for (const source of sources) {
+    for await (const segment of iteratePgnSegments(source.blob, (bytesRead) => onProgress?.(bytesBefore + bytesRead))) {
+      const headers = parsePgnHeaders(segment);
+
+      for (const side of ['White', 'Black'] as const) {
+        const name = headers[side];
+        if (!name || !matcher.test(name)) continue;
+
+        const fideId = headers[`${side}FideId`] ?? null;
+        const key = playerKey(name, fideId);
+        const existing = found.get(key);
+        if (existing) {
+          existing.gameCount += 1;
+        } else {
+          if (found.size >= maxPlayers) {
+            hitLimit = true;
+            break outer;
+          }
+          found.set(key, { name, fideId, gameCount: 1 });
+        }
+      }
+
+      if (shouldStop?.()) {
+        cancelled = true;
+        break outer;
+      }
+    }
+    bytesBefore += source.blob.size;
+  }
+
+  const players = Array.from(found.values()).sort(
+    (a, b) => b.gameCount - a.gameCount || a.name.localeCompare(b.name),
+  );
+  return { players, hitLimit, cancelled };
+}
+
+// --- Phase 2: fetch every game for one specific, already-identified player ------
+
+export type ScanResult = {
+  games: PgnGame[];
+  hitLimit: boolean;
+  cancelled: boolean;
+};
+
+export type PlayerGamesOptions = {
+  name: string;
+  fideId: string | null;
+  maxResults: number;
+  onProgress?: (bytesRead: number) => void;
+  shouldStop?: () => boolean;
+};
+
+export async function scanGamesForPlayer(sources: LibrarySource[], options: PlayerGamesOptions): Promise<ScanResult> {
+  const { name, fideId, maxResults, onProgress, shouldStop } = options;
   const games: PgnGame[] = [];
   let hitLimit = false;
   let cancelled = false;
   let bytesBefore = 0;
 
-  for (const source of sources) {
-    if (hitLimit || cancelled) break;
+  outer: for (const source of sources) {
+    for await (const segment of iteratePgnSegments(source.blob, (bytesRead) => onProgress?.(bytesBefore + bytesRead))) {
+      const headers = parsePgnHeaders(segment);
+      const isMatch =
+        (headers.White === name && (headers.WhiteFideId ?? null) === fideId) ||
+        (headers.Black === name && (headers.BlackFideId ?? null) === fideId);
 
-    const result = await scanPgnFile(source.blob, {
-      ...options,
-      maxResults: maxResults - games.length,
-      onProgress: (bytesRead) => onProgress?.(bytesBefore + bytesRead),
-      shouldStop,
-    });
+      if (isMatch) {
+        games.push({ raw: segment.trim(), headers });
+        if (games.length >= maxResults) {
+          hitLimit = true;
+          break outer;
+        }
+      }
 
+      if (shouldStop?.()) {
+        cancelled = true;
+        break outer;
+      }
+    }
     bytesBefore += source.blob.size;
-    games.push(...result.games);
-    if (result.hitLimit) hitLimit = true;
-    if (result.cancelled) cancelled = true;
   }
 
   return { games, hitLimit, cancelled };

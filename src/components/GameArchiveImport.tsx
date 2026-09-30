@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { extractPgnFromFile, IN_MEMORY_LIMIT_BYTES } from '../lib/archiveFile';
 import { addArchiveToLibrary, getLibraryBlobs, listLibrary, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
-import { scanLibrary } from '../lib/pgnStream';
+import { scanGamesForPlayer, scanPlayers, type PlayerMatch } from '../lib/pgnStream';
 import { type PgnGame } from '../lib/pgnUtils';
 
 type GameArchiveImportProps = {
   onSelectGame: (pgn: string) => void;
 };
 
-const MAX_RESULTS = 200;
+const MAX_PLAYERS = 100;
+const MAX_GAMES = 200;
 
 function formatSize(bytes: number): string {
   const gb = bytes / 1024 ** 3;
@@ -20,11 +21,19 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+
+  const [nameTerm, setNameTerm] = useState('');
+  const [players, setPlayers] = useState<PlayerMatch[] | null>(null);
+  const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
+  const [playerSearchStatus, setPlayerSearchStatus] = useState<string | null>(null);
+  const [playerProgress, setPlayerProgress] = useState(0);
+
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
   const [games, setGames] = useState<PgnGame[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchStatus, setSearchStatus] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [isLoadingGames, setIsLoadingGames] = useState(false);
+  const [gamesStatus, setGamesStatus] = useState<string | null>(null);
+  const [gamesProgress, setGamesProgress] = useState(0);
+
   const cancelRef = useRef(false);
 
   const refreshLibrary = () => listLibrary().then(setLibrary);
@@ -63,33 +72,73 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
     await refreshLibrary();
   };
 
-  const handleSearch = async () => {
-    if (!search.trim() || library.length === 0) return;
-    cancelRef.current = false;
-    setIsSearching(true);
+  const resetSelection = () => {
+    setSelectedPlayer(null);
     setGames([]);
-    setProgress(0);
-    setSearchStatus(null);
+    setGamesStatus(null);
+  };
+
+  const handleFindPlayers = async () => {
+    if (!nameTerm.trim() || library.length === 0) return;
+    cancelRef.current = false;
+    resetSelection();
+    setIsSearchingPlayers(true);
+    setPlayers(null);
+    setPlayerProgress(0);
+    setPlayerSearchStatus(null);
     try {
       const sources = await getLibraryBlobs();
-      const result = await scanLibrary(sources, {
-        term: search,
-        maxResults: MAX_RESULTS,
-        onProgress: (bytesRead) => setProgress(totalSize > 0 ? bytesRead / totalSize : 0),
+      const result = await scanPlayers(sources, {
+        term: nameTerm,
+        maxPlayers: MAX_PLAYERS,
+        onProgress: (bytesRead) => setPlayerProgress(totalSize > 0 ? bytesRead / totalSize : 0),
+        shouldStop: () => cancelRef.current,
+      });
+      setPlayers(result.players);
+      if (result.cancelled) {
+        setPlayerSearchStatus(`Search cancelled — ${result.players.length} players found so far.`);
+      } else if (result.hitLimit) {
+        setPlayerSearchStatus(`Stopped at the first ${MAX_PLAYERS} players — refine the name for fewer.`);
+      } else if (result.players.length === 0) {
+        setPlayerSearchStatus(`No players found matching "${nameTerm.trim()}".`);
+      } else {
+        setPlayerSearchStatus(`Found ${result.players.length} player${result.players.length === 1 ? '' : 's'}.`);
+      }
+    } catch {
+      setPlayerSearchStatus('Could not search the library.');
+    } finally {
+      setIsSearchingPlayers(false);
+    }
+  };
+
+  const handleSelectPlayer = async (player: PlayerMatch) => {
+    cancelRef.current = false;
+    setSelectedPlayer(player);
+    setGames([]);
+    setIsLoadingGames(true);
+    setGamesProgress(0);
+    setGamesStatus(null);
+    try {
+      const sources = await getLibraryBlobs();
+      const result = await scanGamesForPlayer(sources, {
+        name: player.name,
+        fideId: player.fideId,
+        maxResults: MAX_GAMES,
+        onProgress: (bytesRead) => setGamesProgress(totalSize > 0 ? bytesRead / totalSize : 0),
         shouldStop: () => cancelRef.current,
       });
       setGames(result.games);
       if (result.cancelled) {
-        setSearchStatus(`Search cancelled — ${result.games.length} games found so far.`);
+        setGamesStatus(`Search cancelled — ${result.games.length} games found so far.`);
       } else if (result.hitLimit) {
-        setSearchStatus(`Stopped at the first ${MAX_RESULTS} matches — refine the name for fewer.`);
+        setGamesStatus(`Stopped at the first ${MAX_GAMES} games.`);
       } else {
-        setSearchStatus(`Found ${result.games.length} games for "${search.trim()}".`);
+        setGamesStatus(`Found ${result.games.length} game${result.games.length === 1 ? '' : 's'}.`);
       }
     } catch {
-      setSearchStatus('Could not search the library.');
+      setGamesStatus('Could not load games for this player.');
     } finally {
-      setIsSearching(false);
+      setIsLoadingGames(false);
     }
   };
 
@@ -138,20 +187,20 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
           <input
             type="text"
             className="archive-import__search"
-            placeholder="Search library by player name..."
-            value={search}
-            disabled={isSearching}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Player name..."
+            value={nameTerm}
+            disabled={isSearchingPlayers}
+            onChange={(e) => setNameTerm(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSearch();
+              if (e.key === 'Enter') handleFindPlayers();
             }}
           />
-          {!isSearching && (
-            <button type="button" disabled={!search.trim()} onClick={handleSearch}>
-              Search
+          {!isSearchingPlayers && (
+            <button type="button" disabled={!nameTerm.trim()} onClick={handleFindPlayers}>
+              Find players
             </button>
           )}
-          {isSearching && (
+          {isSearchingPlayers && (
             <button type="button" onClick={() => { cancelRef.current = true; }}>
               Cancel
             </button>
@@ -159,27 +208,63 @@ export function GameArchiveImport({ onSelectGame }: GameArchiveImportProps) {
         </div>
       )}
 
-      {isSearching && <p className="archive-import__status">Scanning... {Math.round(progress * 100)}%</p>}
-      {!isSearching && searchStatus && <p className="archive-import__status">{searchStatus}</p>}
+      {isSearchingPlayers && <p className="archive-import__status">Scanning... {Math.round(playerProgress * 100)}%</p>}
+      {!isSearchingPlayers && playerSearchStatus && <p className="archive-import__status">{playerSearchStatus}</p>}
 
-      {games.length > 0 && (
+      {players && players.length > 0 && !selectedPlayer && (
         <div className="archive-import__results">
-          {games.map((game, index) => (
+          {players.map((player) => (
             <button
               type="button"
-              key={index}
+              key={`${player.name}:${player.fideId ?? ''}`}
               className="archive-import__result"
-              onClick={() => onSelectGame(game.raw)}
+              onClick={() => handleSelectPlayer(player)}
             >
-              <span className="archive-import__players">
-                {game.headers.White ?? '?'} vs {game.headers.Black ?? '?'}
-              </span>
+              <span className="archive-import__players">{player.name}</span>
               <span className="archive-import__meta">
-                {game.headers.Event ?? ''} {game.headers.Result ?? ''}
+                {player.fideId ? `FIDE ${player.fideId} · ` : 'no FIDE ID · '}
+                {player.gameCount} game{player.gameCount === 1 ? '' : 's'}
               </span>
             </button>
           ))}
         </div>
+      )}
+
+      {selectedPlayer && (
+        <>
+          <div className="archive-import__selected-player">
+            <span>
+              {selectedPlayer.name}
+              {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
+            </span>
+            <button type="button" onClick={resetSelection}>
+              ← back to players
+            </button>
+          </div>
+
+          {isLoadingGames && <p className="archive-import__status">Loading games... {Math.round(gamesProgress * 100)}%</p>}
+          {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
+
+          {games.length > 0 && (
+            <div className="archive-import__results">
+              {games.map((game, index) => (
+                <button
+                  type="button"
+                  key={index}
+                  className="archive-import__result"
+                  onClick={() => onSelectGame(game.raw)}
+                >
+                  <span className="archive-import__players">
+                    {game.headers.White ?? '?'} vs {game.headers.Black ?? '?'}
+                  </span>
+                  <span className="archive-import__meta">
+                    {game.headers.Event ?? ''} {game.headers.Result ?? ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
