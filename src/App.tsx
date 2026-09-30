@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AiSettings } from './components/AiSettings';
 import { Board } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
 import { GamesTable } from './components/GamesTable';
 import { LichessImport } from './components/LichessImport';
+import { MoveAnalysis } from './components/MoveAnalysis';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
 import { useChessGame } from './hooks/useChessGame';
@@ -31,6 +33,8 @@ function App() {
     fens,
     currentPly,
     currentFen,
+    previousFen,
+    lastMoveSan,
     isBranching,
     branchMoves,
     error,
@@ -107,7 +111,10 @@ function App() {
 
   return (
     <div className="app">
-      <h1>Chess Trainer</h1>
+      <div className="app__header">
+        <h1>Chess Trainer</h1>
+        <AiSettings />
+      </div>
       <div className="app__layout">
         <div className="app__board-row">
           <EvalBar
@@ -133,6 +140,15 @@ function App() {
                   ← back to game
                 </button>
               </div>
+            )}
+            {lastMoveSan && previousFen && (
+              <MoveAnalysis
+                key={`${previousFen}|${currentFen}`}
+                fenBefore={previousFen}
+                fenAfter={currentFen}
+                moveSan={lastMoveSan}
+                moverColor={previousFen.split(' ')[1] === 'b' ? 'b' : 'w'}
+              />
             )}
           </div>
         </div>

@@ -2,6 +2,7 @@ export type PositionEval = {
   scoreCp: number | null;
   scoreMate: number | null;
   bestMoveUci: string | null;
+  pv: string[];
 };
 
 export type AnalysisEngine = {
@@ -20,6 +21,7 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
     let pending: { resolve: (result: PositionEval) => void } | null = null;
     let lastScoreCp: number | null = null;
     let lastScoreMate: number | null = null;
+    let lastPv: string[] = [];
 
     worker.onmessage = (e: MessageEvent<string>) => {
       const message = e.data;
@@ -31,6 +33,7 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
             new Promise((resolve) => {
               lastScoreCp = null;
               lastScoreMate = null;
+              lastPv = [];
               pending = { resolve };
               worker.postMessage(`position fen ${fen}`);
               worker.postMessage(`go depth ${depth}`);
@@ -40,12 +43,14 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
       } else if (message.startsWith('info') && message.includes(' pv ')) {
         const cpMatch = message.match(/score cp (-?\d+)/);
         const mateMatch = message.match(/score mate (-?\d+)/);
+        const pvMatch = message.match(/ pv (.+)/);
         if (cpMatch) lastScoreCp = Number(cpMatch[1]);
         if (mateMatch) lastScoreMate = Number(mateMatch[1]);
+        if (pvMatch) lastPv = pvMatch[1].trim().split(' ');
       } else if (message.startsWith('bestmove')) {
         const parts = message.split(' ');
         const bestMoveUci = parts[1] && parts[1] !== '(none)' ? parts[1] : null;
-        pending?.resolve({ scoreCp: lastScoreCp, scoreMate: lastScoreMate, bestMoveUci });
+        pending?.resolve({ scoreCp: lastScoreCp, scoreMate: lastScoreMate, bestMoveUci, pv: lastPv });
         pending = null;
       }
     };

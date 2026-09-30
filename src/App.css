@@ -4,6 +4,13 @@
   padding: 24px 16px;
 }
 
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .app__layout {
   display: flex;
   gap: 32px;
@@ -491,4 +498,100 @@
 
 .games-table__player--selected {
   font-weight: 700;
+}
+
+.games-table__filters button {
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.games-table__ai-result {
+  font-size: 13px;
+  line-height: 150%;
+  white-space: pre-wrap;
+  padding: 10px 12px;
+  margin: 0 0 8px;
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  border-radius: 4px;
+}
+
+.games-table__ai-error {
+  font-size: 13px;
+  color: #d33;
+  margin: 0 0 8px;
+}
+
+.ai-settings {
+  position: relative;
+  font-size: 13px;
+}
+
+.ai-settings__toggle {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.ai-settings__panel {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 280px;
+  margin-top: 4px;
+  padding: 12px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.ai-settings__panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.ai-settings__panel input {
+  padding: 6px 8px;
+}
+
+.ai-settings__hint {
+  font-size: 11px;
+  color: var(--text, #6b6375);
+  margin: 0;
+}
+
+.ai-settings__panel button {
+  align-self: flex-start;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.move-analysis {
+  margin-top: 10px;
+}
+
+.move-analysis button {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.move-analysis__result {
+  font-size: 13px;
+  line-height: 150%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  border-radius: 4px;
+}
+
+.move-analysis__error {
+  font-size: 13px;
+  color: #d33;
+  margin-top: 8px;
 }

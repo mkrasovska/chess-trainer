@@ -1,4 +1,22 @@
 import { useMemo, useState } from 'react';
+import { useGeminiRequest } from '../hooks/useGeminiRequest';
+import {
+  buildPlayerProfilePrompt,
+  ECO_LABELS,
+  ECO_ORDER,
+  FIRST_MOVE_LABELS,
+  FIRST_MOVE_ORDER,
+  getColor,
+  getEcoLetter,
+  getFirstMove,
+  getOpeningName,
+  getOutcome,
+  getYear,
+  type Color,
+  type EcoLetter,
+  type FirstMove,
+  type Outcome,
+} from '../lib/gameStats';
 import type { PlayerMatch } from '../lib/pgnStream';
 import type { PgnGame } from '../lib/pgnUtils';
 
@@ -8,11 +26,7 @@ type GamesTableProps = {
   selectedPlayer: PlayerMatch;
 };
 
-type Color = 'white' | 'black';
-type Outcome = 'win' | 'loss' | 'draw' | 'unknown';
 type FilterableOutcome = Exclude<Outcome, 'unknown'>;
-type EcoLetter = 'A' | 'B' | 'C' | 'D' | 'E';
-type FirstMove = 'e4' | 'd4' | 'c4' | 'Nf3' | 'other';
 
 const COLOR_OPTIONS: { value: Color; label: string }[] = [
   { value: 'white', label: 'White' },
@@ -25,75 +39,11 @@ const OUTCOME_OPTIONS: { value: FilterableOutcome; label: string }[] = [
   { value: 'draw', label: 'Draws' },
 ];
 
-const ECO_LABELS: Record<EcoLetter, string> = {
-  A: 'Flank Openings',
-  B: 'Semi-Open Games',
-  C: 'Open Games',
-  D: 'Closed & Queen’s Pawn',
-  E: 'Indian Defenses',
-};
-const ECO_ORDER: EcoLetter[] = ['A', 'B', 'C', 'D', 'E'];
-
-const FIRST_MOVE_LABELS: Record<FirstMove, string> = {
-  e4: '1.e4',
-  d4: '1.d4',
-  c4: '1.c4',
-  Nf3: '1.Nf3',
-  other: 'Other',
-};
-const FIRST_MOVE_ORDER: FirstMove[] = ['e4', 'd4', 'c4', 'Nf3', 'other'];
-
 function toggle<T>(set: Set<T>, value: T): Set<T> {
   const next = new Set(set);
   if (next.has(value)) next.delete(value);
   else next.add(value);
   return next;
-}
-
-function getYear(headers: Record<string, string>): number | null {
-  const date = headers.Date ?? headers.EventDate ?? '';
-  const year = Number(date.split('.')[0]);
-  return Number.isInteger(year) && year > 0 ? year : null;
-}
-
-function getEcoLetter(headers: Record<string, string>): EcoLetter | null {
-  const letter = headers.ECO?.[0];
-  return letter && (ECO_ORDER as string[]).includes(letter) ? (letter as EcoLetter) : null;
-}
-
-function getOpeningName(headers: Record<string, string>): string | null {
-  const name = headers.Opening?.trim();
-  return name ? name : null;
-}
-
-function getFirstMove(raw: string): FirstMove | null {
-  const separatorIndex = raw.indexOf('\n\n');
-  const moveText = separatorIndex === -1 ? raw : raw.slice(separatorIndex + 2);
-  const match = moveText.match(/1\.\s*(\S+)/);
-  if (!match) return null;
-  const move = match[1].replace(/[+#!?]+$/g, '');
-  if (move === 'e4' || move === 'd4' || move === 'c4' || move === 'Nf3') return move;
-  return 'other';
-}
-
-function isSelectedSide(headers: Record<string, string>, side: 'White' | 'Black', player: PlayerMatch): boolean {
-  if (headers[side] !== player.name) return false;
-  return (headers[`${side}FideId`] ?? null) === player.fideId;
-}
-
-function getColor(headers: Record<string, string>, player: PlayerMatch): Color | null {
-  if (isSelectedSide(headers, 'White', player)) return 'white';
-  if (isSelectedSide(headers, 'Black', player)) return 'black';
-  return null;
-}
-
-function getOutcome(headers: Record<string, string>, color: Color | null): Outcome {
-  if (!color) return 'unknown';
-  const result = headers.Result;
-  if (result === '1/2-1/2') return 'draw';
-  if (result === '1-0') return color === 'white' ? 'win' : 'loss';
-  if (result === '0-1') return color === 'black' ? 'win' : 'loss';
-  return 'unknown';
 }
 
 export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTableProps) {
@@ -104,6 +54,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const [openingNameFilter, setOpeningNameFilter] = useState<Set<string>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
+  const { isLoading: isAskingAboutPlayer, result: aboutPlayerResult, error: aboutPlayerError, ask: askAboutPlayer } = useGeminiRequest();
 
   const rows = useMemo(
     () =>
@@ -255,7 +206,17 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         <span className="games-table__filters-count">
           Showing {filteredRows.length} of {games.length} games
         </span>
+        <button
+          type="button"
+          disabled={isAskingAboutPlayer || filteredRows.length === 0}
+          onClick={() => askAboutPlayer(buildPlayerProfilePrompt(filteredRows.map((row) => row.game), selectedPlayer))}
+        >
+          {isAskingAboutPlayer ? 'Asking Gemini...' : 'About player'}
+        </button>
       </div>
+
+      {aboutPlayerError && <p className="games-table__ai-error">{aboutPlayerError}</p>}
+      {aboutPlayerResult && <p className="games-table__ai-result">{aboutPlayerResult}</p>}
 
       <div className="games-table-wrap">
         <table className="games-table">

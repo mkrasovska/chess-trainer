@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Chess, type Move } from 'chess.js';
 
-function computeFens(moves: Move[]): string[] {
-  const scratch = new Chess();
+function computeFens(moves: Move[], startFen?: string): string[] {
+  const scratch = startFen ? new Chess(startFen) : new Chess();
   const fens = [scratch.fen()];
   for (const move of moves) {
     scratch.move(move.san);
@@ -34,11 +34,26 @@ export function useChessGame() {
     setIsBranching(false);
   }, []);
 
+  const branchFens = useMemo(
+    () => (isBranching ? computeFens(branchMoves, fens[currentPly]) : []),
+    [isBranching, branchMoves, fens, currentPly],
+  );
+
   const currentFen = isBranching && branchRef.current
     ? branchRef.current.game.fen()
     : (fens[currentPly] ?? fens[fens.length - 1]);
 
   const isAtLatest = !isBranching && currentPly === moves.length;
+
+  // The position before, and SAN of, whichever move led to the current position
+  // (mainline or branch) -- used for on-demand move analysis.
+  const previousFen = isBranching
+    ? (branchFens.length >= 2 ? branchFens[branchFens.length - 2] : fens[currentPly])
+    : (currentPly > 0 ? fens[currentPly - 1] : null);
+
+  const lastMoveSan = isBranching
+    ? (branchMoves[branchMoves.length - 1]?.san ?? null)
+    : (currentPly > 0 ? (moves[currentPly - 1]?.san ?? null) : null);
 
   const loadPgn = useCallback((pgn: string) => {
     try {
@@ -139,6 +154,8 @@ export function useChessGame() {
     fens,
     currentPly,
     currentFen,
+    previousFen,
+    lastMoveSan,
     isAtLatest,
     isBranching,
     branchMoves,
