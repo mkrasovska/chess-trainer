@@ -375,6 +375,35 @@
   font-weight: 600;
 }
 
+.move-list__quality {
+  font-weight: 700;
+}
+
+.move-list__quality--blunder {
+  color: #d33;
+}
+
+.move-list__quality--mistake {
+  color: #e08a00;
+}
+
+.move-list__quality--inaccuracy {
+  color: #cbb400;
+}
+
+.app__analysis-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.app__analysis-controls button {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
 .games-table-section {
   width: 100%;
   margin-top: 24px;

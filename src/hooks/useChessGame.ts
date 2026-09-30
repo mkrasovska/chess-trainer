@@ -136,6 +136,7 @@ export function useChessGame() {
 
   return {
     moves,
+    fens,
     currentPly,
     currentFen,
     isAtLatest,

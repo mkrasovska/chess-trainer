@@ -7,6 +7,7 @@ import { LichessImport } from './components/LichessImport';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
 import { useChessGame } from './hooks/useChessGame';
+import { useGameAnalysis } from './hooks/useGameAnalysis';
 import { useStockfish } from './hooks/useStockfish';
 import { getLibraryBlobs } from './lib/gameLibrary';
 import { scanGamesForPlayer, type PlayerMatch } from './lib/pgnStream';
@@ -27,6 +28,7 @@ function uciToArrow(uciMove: string) {
 function App() {
   const {
     moves,
+    fens,
     currentPly,
     currentFen,
     isBranching,
@@ -43,7 +45,13 @@ function App() {
   } = useChessGame();
 
   const { isReady, line, bestMove, evaluate } = useStockfish();
+  const gameAnalysis = useGameAnalysis();
   const [importTab, setImportTab] = useState<ImportTab>('paste');
+
+  const handleLoadPgn = (pgn: string) => {
+    gameAnalysis.clear();
+    loadPgn(pgn);
+  };
 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
   const [playerGames, setPlayerGames] = useState<PgnGame[]>([]);
@@ -152,7 +160,7 @@ function App() {
               Lichess
             </button>
           </div>
-          {importTab === 'paste' && <PgnImport onLoad={loadPgn} error={error} />}
+          {importTab === 'paste' && <PgnImport onLoad={handleLoadPgn} error={error} />}
           {importTab === 'archive' && (
             <GameArchiveImport
               selectedPlayer={selectedPlayer}
@@ -160,8 +168,32 @@ function App() {
               onBackToPlayers={handleBackToPlayers}
             />
           )}
-          {importTab === 'lichess' && <LichessImport onSelectGame={loadPgn} />}
-          <MoveList moves={moves} currentPly={currentPly} onSelectPly={goToPly} />
+          {importTab === 'lichess' && <LichessImport onSelectGame={handleLoadPgn} />}
+
+          {moves.length > 0 && (
+            <div className="app__analysis-controls">
+              {!gameAnalysis.isAnalyzing && (
+                <button type="button" onClick={() => gameAnalysis.analyze(fens)}>
+                  Analyze game
+                </button>
+              )}
+              {gameAnalysis.isAnalyzing && (
+                <>
+                  <span>Analyzing... {Math.round(gameAnalysis.progress * 100)}%</span>
+                  <button type="button" onClick={gameAnalysis.cancel}>
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          <MoveList
+            moves={moves}
+            currentPly={currentPly}
+            onSelectPly={goToPly}
+            classifications={gameAnalysis.classifications}
+          />
         </div>
       </div>
 
@@ -177,7 +209,7 @@ function App() {
           )}
           {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
           {playerGames.length > 0 && (
-            <GamesTable games={playerGames} onSelectGame={loadPgn} selectedPlayer={selectedPlayer} />
+            <GamesTable games={playerGames} onSelectGame={handleLoadPgn} selectedPlayer={selectedPlayer} />
           )}
         </div>
       )}
