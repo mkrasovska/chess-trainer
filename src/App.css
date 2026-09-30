@@ -402,6 +402,11 @@
   cursor: pointer;
 }
 
+.games-table__year-input {
+  width: 64px;
+  padding: 3px 6px;
+}
+
 .games-table__filters-count {
   color: var(--text, #6b6375);
   margin-left: auto;

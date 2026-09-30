@@ -11,6 +11,7 @@ type GamesTableProps = {
 type Color = 'white' | 'black';
 type Outcome = 'win' | 'loss' | 'draw' | 'unknown';
 type FilterableOutcome = Exclude<Outcome, 'unknown'>;
+type EcoLetter = 'A' | 'B' | 'C' | 'D' | 'E';
 
 const COLOR_OPTIONS: { value: Color; label: string }[] = [
   { value: 'white', label: 'White' },
@@ -23,6 +24,15 @@ const OUTCOME_OPTIONS: { value: FilterableOutcome; label: string }[] = [
   { value: 'draw', label: 'Draws' },
 ];
 
+const ECO_LABELS: Record<EcoLetter, string> = {
+  A: 'Flank Openings',
+  B: 'Semi-Open Games',
+  C: 'Open Games',
+  D: 'Closed & Queen’s Pawn',
+  E: 'Indian Defenses',
+};
+const ECO_ORDER: EcoLetter[] = ['A', 'B', 'C', 'D', 'E'];
+
 function toggle<T>(set: Set<T>, value: T): Set<T> {
   const next = new Set(set);
   if (next.has(value)) next.delete(value);
@@ -30,10 +40,15 @@ function toggle<T>(set: Set<T>, value: T): Set<T> {
   return next;
 }
 
-function getYear(headers: Record<string, string>): string {
+function getYear(headers: Record<string, string>): number | null {
   const date = headers.Date ?? headers.EventDate ?? '';
-  const year = date.split('.')[0];
-  return year && !year.includes('?') ? year : '?';
+  const year = Number(date.split('.')[0]);
+  return Number.isInteger(year) && year > 0 ? year : null;
+}
+
+function getEcoLetter(headers: Record<string, string>): EcoLetter | null {
+  const letter = headers.ECO?.[0];
+  return letter && (ECO_ORDER as string[]).includes(letter) ? (letter as EcoLetter) : null;
 }
 
 function isSelectedSide(headers: Record<string, string>, side: 'White' | 'Black', player: PlayerMatch): boolean {
@@ -59,24 +74,44 @@ function getOutcome(headers: Record<string, string>, color: Color | null): Outco
 export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTableProps) {
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
+  const [ecoFilter, setEcoFilter] = useState<Set<EcoLetter>>(new Set());
+  const [yearFrom, setYearFrom] = useState('');
+  const [yearTo, setYearTo] = useState('');
 
   const rows = useMemo(
     () =>
       games.map((game) => {
         const color = getColor(game.headers, selectedPlayer);
-        return { game, color, outcome: getOutcome(game.headers, color) };
+        return {
+          game,
+          color,
+          outcome: getOutcome(game.headers, color),
+          eco: getEcoLetter(game.headers),
+          year: getYear(game.headers),
+        };
       }),
     [games, selectedPlayer],
   );
 
+  const availableEcoLetters = useMemo(
+    () => ECO_ORDER.filter((letter) => rows.some((row) => row.eco === letter)),
+    [rows],
+  );
+
+  const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
+  const yearToNum = yearTo.trim() ? Number(yearTo) : null;
+
   const filteredRows = useMemo(
     () =>
-      rows.filter(
-        (row) =>
-          (colorFilter.size === 0 || (row.color !== null && colorFilter.has(row.color))) &&
-          (outcomeFilter.size === 0 || (row.outcome !== 'unknown' && outcomeFilter.has(row.outcome))),
-      ),
-    [rows, colorFilter, outcomeFilter],
+      rows.filter((row) => {
+        if (colorFilter.size > 0 && (row.color === null || !colorFilter.has(row.color))) return false;
+        if (outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
+        if (ecoFilter.size > 0 && (row.eco === null || !ecoFilter.has(row.eco))) return false;
+        if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
+        if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
+        return true;
+      }),
+    [rows, colorFilter, outcomeFilter, ecoFilter, yearFromNum, yearToNum],
   );
 
   return (
@@ -108,6 +143,39 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
             </label>
           ))}
         </span>
+        {availableEcoLetters.length > 0 && (
+          <span className="games-table__filter-group">
+            Opening:
+            {availableEcoLetters.map((letter) => (
+              <label key={letter} title={ECO_LABELS[letter]}>
+                <input
+                  type="checkbox"
+                  checked={ecoFilter.has(letter)}
+                  onChange={() => setEcoFilter((prev) => toggle(prev, letter))}
+                />
+                {letter} – {ECO_LABELS[letter]}
+              </label>
+            ))}
+          </span>
+        )}
+        <span className="games-table__filter-group">
+          Year:
+          <input
+            type="number"
+            className="games-table__year-input"
+            placeholder="From"
+            value={yearFrom}
+            onChange={(e) => setYearFrom(e.target.value)}
+          />
+          <span>–</span>
+          <input
+            type="number"
+            className="games-table__year-input"
+            placeholder="To"
+            value={yearTo}
+            onChange={(e) => setYearTo(e.target.value)}
+          />
+        </span>
         <span className="games-table__filters-count">
           Showing {filteredRows.length} of {games.length} games
         </span>
@@ -126,9 +194,9 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map(({ game, color }, index) => (
+            {filteredRows.map(({ game, color, year }, index) => (
               <tr key={index} className="games-table__row" onClick={() => onSelectGame(game.raw)}>
-                <td>{getYear(game.headers)}</td>
+                <td>{year ?? '?'}</td>
                 <td className={color === 'white' ? 'games-table__player--selected' : undefined}>
                   {game.headers.White ?? '?'}
                 </td>
