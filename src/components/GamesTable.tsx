@@ -61,6 +61,11 @@ function getEcoLetter(headers: Record<string, string>): EcoLetter | null {
   return letter && (ECO_ORDER as string[]).includes(letter) ? (letter as EcoLetter) : null;
 }
 
+function getOpeningName(headers: Record<string, string>): string | null {
+  const name = headers.Opening?.trim();
+  return name ? name : null;
+}
+
 function getFirstMove(raw: string): FirstMove | null {
   const separatorIndex = raw.indexOf('\n\n');
   const moveText = separatorIndex === -1 ? raw : raw.slice(separatorIndex + 2);
@@ -96,6 +101,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
   const [ecoFilter, setEcoFilter] = useState<Set<EcoLetter>>(new Set());
   const [firstMoveFilter, setFirstMoveFilter] = useState<Set<FirstMove>>(new Set());
+  const [openingNameFilter, setOpeningNameFilter] = useState<Set<string>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
 
@@ -109,6 +115,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           outcome: getOutcome(game.headers, color),
           eco: getEcoLetter(game.headers),
           firstMove: getFirstMove(game.raw),
+          openingName: getOpeningName(game.headers),
           year: getYear(game.headers),
         };
       }),
@@ -125,6 +132,14 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     [rows],
   );
 
+  const availableOpeningNames = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.openingName) counts.set(row.openingName, (counts.get(row.openingName) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [rows]);
+
   const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
   const yearToNum = yearTo.trim() ? Number(yearTo) : null;
 
@@ -135,11 +150,12 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         if (outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
         if (ecoFilter.size > 0 && (row.eco === null || !ecoFilter.has(row.eco))) return false;
         if (firstMoveFilter.size > 0 && (row.firstMove === null || !firstMoveFilter.has(row.firstMove))) return false;
+        if (openingNameFilter.size > 0 && (row.openingName === null || !openingNameFilter.has(row.openingName))) return false;
         if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
         if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
         return true;
       }),
-    [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, yearFromNum, yearToNum],
+    [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum],
   );
 
   return (
@@ -173,7 +189,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         </span>
         {availableEcoLetters.length > 0 && (
           <span className="games-table__filter-group">
-            Opening:
+            ECO:
             {availableEcoLetters.map((letter) => (
               <label key={letter} title={ECO_LABELS[letter]}>
                 <input
@@ -199,6 +215,23 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
                 {FIRST_MOVE_LABELS[move]}
               </label>
             ))}
+          </span>
+        )}
+        {availableOpeningNames.length > 0 && (
+          <span className="games-table__filter-group">
+            Opening:
+            <div className="games-table__opening-list">
+              {availableOpeningNames.map(([name, count]) => (
+                <label key={name}>
+                  <input
+                    type="checkbox"
+                    checked={openingNameFilter.has(name)}
+                    onChange={() => setOpeningNameFilter((prev) => toggle(prev, name))}
+                  />
+                  {name} ({count})
+                </label>
+              ))}
+            </div>
           </span>
         )}
         <span className="games-table__filter-group">
