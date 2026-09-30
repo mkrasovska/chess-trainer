@@ -12,6 +12,7 @@ type Color = 'white' | 'black';
 type Outcome = 'win' | 'loss' | 'draw' | 'unknown';
 type FilterableOutcome = Exclude<Outcome, 'unknown'>;
 type EcoLetter = 'A' | 'B' | 'C' | 'D' | 'E';
+type FirstMove = 'e4' | 'd4' | 'c4' | 'Nf3' | 'other';
 
 const COLOR_OPTIONS: { value: Color; label: string }[] = [
   { value: 'white', label: 'White' },
@@ -33,6 +34,15 @@ const ECO_LABELS: Record<EcoLetter, string> = {
 };
 const ECO_ORDER: EcoLetter[] = ['A', 'B', 'C', 'D', 'E'];
 
+const FIRST_MOVE_LABELS: Record<FirstMove, string> = {
+  e4: '1.e4',
+  d4: '1.d4',
+  c4: '1.c4',
+  Nf3: '1.Nf3',
+  other: 'Other',
+};
+const FIRST_MOVE_ORDER: FirstMove[] = ['e4', 'd4', 'c4', 'Nf3', 'other'];
+
 function toggle<T>(set: Set<T>, value: T): Set<T> {
   const next = new Set(set);
   if (next.has(value)) next.delete(value);
@@ -49,6 +59,16 @@ function getYear(headers: Record<string, string>): number | null {
 function getEcoLetter(headers: Record<string, string>): EcoLetter | null {
   const letter = headers.ECO?.[0];
   return letter && (ECO_ORDER as string[]).includes(letter) ? (letter as EcoLetter) : null;
+}
+
+function getFirstMove(raw: string): FirstMove | null {
+  const separatorIndex = raw.indexOf('\n\n');
+  const moveText = separatorIndex === -1 ? raw : raw.slice(separatorIndex + 2);
+  const match = moveText.match(/1\.\s*(\S+)/);
+  if (!match) return null;
+  const move = match[1].replace(/[+#!?]+$/g, '');
+  if (move === 'e4' || move === 'd4' || move === 'c4' || move === 'Nf3') return move;
+  return 'other';
 }
 
 function isSelectedSide(headers: Record<string, string>, side: 'White' | 'Black', player: PlayerMatch): boolean {
@@ -75,6 +95,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
   const [ecoFilter, setEcoFilter] = useState<Set<EcoLetter>>(new Set());
+  const [firstMoveFilter, setFirstMoveFilter] = useState<Set<FirstMove>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
 
@@ -87,6 +108,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           color,
           outcome: getOutcome(game.headers, color),
           eco: getEcoLetter(game.headers),
+          firstMove: getFirstMove(game.raw),
           year: getYear(game.headers),
         };
       }),
@@ -95,6 +117,11 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
 
   const availableEcoLetters = useMemo(
     () => ECO_ORDER.filter((letter) => rows.some((row) => row.eco === letter)),
+    [rows],
+  );
+
+  const availableFirstMoves = useMemo(
+    () => FIRST_MOVE_ORDER.filter((move) => rows.some((row) => row.firstMove === move)),
     [rows],
   );
 
@@ -107,11 +134,12 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         if (colorFilter.size > 0 && (row.color === null || !colorFilter.has(row.color))) return false;
         if (outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
         if (ecoFilter.size > 0 && (row.eco === null || !ecoFilter.has(row.eco))) return false;
+        if (firstMoveFilter.size > 0 && (row.firstMove === null || !firstMoveFilter.has(row.firstMove))) return false;
         if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
         if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
         return true;
       }),
-    [rows, colorFilter, outcomeFilter, ecoFilter, yearFromNum, yearToNum],
+    [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, yearFromNum, yearToNum],
   );
 
   return (
@@ -154,6 +182,21 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
                   onChange={() => setEcoFilter((prev) => toggle(prev, letter))}
                 />
                 {letter} – {ECO_LABELS[letter]}
+              </label>
+            ))}
+          </span>
+        )}
+        {availableFirstMoves.length > 0 && (
+          <span className="games-table__filter-group">
+            First move:
+            {availableFirstMoves.map((move) => (
+              <label key={move}>
+                <input
+                  type="checkbox"
+                  checked={firstMoveFilter.has(move)}
+                  onChange={() => setFirstMoveFilter((prev) => toggle(prev, move))}
+                />
+                {FIRST_MOVE_LABELS[move]}
               </label>
             ))}
           </span>
