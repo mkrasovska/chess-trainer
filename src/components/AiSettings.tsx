@@ -20,7 +20,6 @@ export function AiSettings() {
   const [selectedModel, setSelectedModel] = useState(() => getModel(provider));
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const providerLabel = AI_PROVIDERS.find((p) => p.id === provider)?.label ?? '';
 
@@ -59,8 +58,7 @@ export function AiSettings() {
     setAiProvider(provider);
     setApiKey(provider, apiKey.trim());
     setModel(provider, selectedModel);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    setIsOpen(false);
   };
 
   useEffect(() => {
@@ -148,7 +146,7 @@ export function AiSettings() {
           </p>
 
           <button type="button" onClick={handleSave} disabled={!selectedModel}>
-            {saved ? 'Saved' : 'Save'}
+            Save
           </button>
         </div>
       )}

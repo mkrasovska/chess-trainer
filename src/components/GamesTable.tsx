@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAiRequest } from '../hooks/useAiRequest';
+import { AiResultPanel } from './AiResultPanel';
 import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
 import {
   buildPlayerProfilePrompt,
@@ -55,7 +56,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const [openingNameFilter, setOpeningNameFilter] = useState<Set<string>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
-  const { isLoading: isAskingAboutPlayer, result: aboutPlayerResult, error: aboutPlayerError, ask: askAboutPlayer } = useAiRequest();
+  const { isLoading: isAskingAboutPlayer, result: aboutPlayerResult, error: aboutPlayerError, ask: askAboutPlayer, clear: clearAboutPlayer } = useAiRequest();
   const providerLabel = AI_PROVIDERS.find((p) => p.id === getAiProvider())?.label ?? 'AI';
 
   const rows = useMemo(
@@ -217,8 +218,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         </button>
       </div>
 
-      {aboutPlayerError && <p className="games-table__ai-error">{aboutPlayerError}</p>}
-      {aboutPlayerResult && <p className="games-table__ai-result">{aboutPlayerResult}</p>}
+      <AiResultPanel result={aboutPlayerResult} error={aboutPlayerError} onClose={clearAboutPlayer} />
 
       <div className="games-table-wrap">
         <table className="games-table">

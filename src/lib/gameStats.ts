@@ -150,11 +150,10 @@ export function buildPlayerProfilePrompt(games: PgnGame[], player: PlayerMatch):
 
 ${summary}
 
-Based only on this data, write a short scouting profile with these sections:
-1. Overall strengths/weaknesses (from the win/loss/draw record by color)
-2. Favorite openings/systems, as White and as Black
-3. Likely playing style (aggressive/tactical vs. positional/solid) -- infer this cautiously from opening choices, and say plainly that style can't be fully judged from results alone, only suggested by them
-4. A practical suggestion for how an opponent could prepare against them
+Skip restating the win/loss/draw record -- that's already shown separately. Based only on this data, write a short scouting profile with these sections:
+1. Favorite openings/systems, as White and as Black
+2. Likely playing style (aggressive/tactical vs. positional/solid) -- infer this cautiously from opening choices, and say plainly that style can't be fully judged from results alone, only suggested by them
+3. A practical suggestion for how an opponent could prepare against them
 
-Keep it to about 150-200 words total, with short section headers. Be direct and specific to this data, not generic chess advice.`;
+Keep it to about 90-120 words total, with short section headers. Be direct and specific to this data, not generic chess advice.`;
 }

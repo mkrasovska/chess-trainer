@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAiRequest } from '../hooks/useAiRequest';
+import { AiResultPanel } from './AiResultPanel';
 import { createAnalysisEngine } from '../lib/analysisEngine';
 import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
 import { buildMoveAnalysisPrompt } from '../lib/moveAnalysisPrompt';
@@ -44,8 +45,7 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
       <button type="button" onClick={handleAnalyze} disabled={isBusy}>
         {isBusy ? (isEvaluating ? 'Evaluating...' : `Asking ${providerLabel}...`) : `Analyze ${moveSan}`}
       </button>
-      {error && <p className="move-analysis__error">{error}</p>}
-      {result && <p className="move-analysis__result">{result}</p>}
+      <AiResultPanel result={result} error={error} onClose={clear} />
     </div>
   );
 }
