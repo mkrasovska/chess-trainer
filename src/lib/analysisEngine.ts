@@ -17,7 +17,7 @@ export type AnalysisEngine = {
  */
 export function createAnalysisEngine(): Promise<AnalysisEngine> {
   return new Promise((resolveReady) => {
-    const worker = new Worker('/stockfish/stockfish-19-lite-single.js');
+    const worker = new Worker(`${import.meta.env.BASE_URL}stockfish/stockfish-19-lite-single.js`);
     let pending: { resolve: (result: PositionEval) => void } | null = null;
     let lastScoreCp: number | null = null;
     let lastScoreMate: number | null = null;
