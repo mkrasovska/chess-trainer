@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { createAnalysisEngine, type PositionEval } from '../lib/analysisEngine';
 import { classifyGame, type MoveQuality } from '../lib/moveQuality';
 
-const ANALYSIS_DEPTH = 18;
+const ANALYSIS_DEPTH = 20;
 
 export function useGameAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);

@@ -5,7 +5,7 @@ import { createAnalysisEngine } from '../lib/analysisEngine';
 import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
 import { buildMoveAnalysisPrompt } from '../lib/moveAnalysisPrompt';
 
-const ANALYSIS_DEPTH = 18;
+const ANALYSIS_DEPTH = 20;
 
 type MoveAnalysisProps = {
   fenBefore: string;
