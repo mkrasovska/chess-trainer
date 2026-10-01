@@ -85,7 +85,7 @@ export function useStockfish() {
     };
   }, [startWorker]);
 
-  const evaluate = useCallback((fen: string, depth = 16) => {
+  const evaluate = useCallback((fen: string, depth = 18) => {
     if (!isReady) return;
     if (isSearchingRef.current) {
       pendingRef.current = { fen, depth };
