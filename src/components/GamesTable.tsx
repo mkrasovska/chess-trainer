@@ -78,10 +78,34 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     [games, selectedPlayer],
   );
 
+  const colorCounts = useMemo(() => {
+    const counts: Record<Color, number> = { white: 0, black: 0 };
+    for (const row of rows) if (row.color) counts[row.color]++;
+    return counts;
+  }, [rows]);
+
+  const outcomeCounts = useMemo(() => {
+    const counts: Record<FilterableOutcome, number> = { win: 0, loss: 0, draw: 0 };
+    for (const row of rows) if (row.outcome !== 'unknown') counts[row.outcome]++;
+    return counts;
+  }, [rows]);
+
+  const ecoCounts = useMemo(() => {
+    const counts = new Map<EcoLetter, number>();
+    for (const row of rows) if (row.eco) counts.set(row.eco, (counts.get(row.eco) ?? 0) + 1);
+    return counts;
+  }, [rows]);
+
   const availableEcoLetters = useMemo(
     () => ECO_ORDER.filter((letter) => rows.some((row) => row.eco === letter)),
     [rows],
   );
+
+  const firstMoveCounts = useMemo(() => {
+    const counts = new Map<FirstMove, number>();
+    for (const row of rows) if (row.firstMove) counts.set(row.firstMove, (counts.get(row.firstMove) ?? 0) + 1);
+    return counts;
+  }, [rows]);
 
   const availableFirstMoves = useMemo(
     () => FIRST_MOVE_ORDER.filter((move) => rows.some((row) => row.firstMove === move)),
@@ -131,7 +155,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
                 checked={colorFilter.has(option.value)}
                 onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
               />
-              {option.label}
+              {option.label} ({colorCounts[option.value]})
             </label>
           ))}
         </span>
@@ -144,7 +168,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
                 checked={outcomeFilter.has(option.value)}
                 onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
               />
-              {option.label}
+              {option.label} ({outcomeCounts[option.value]})
             </label>
           ))}
         </span>
@@ -158,7 +182,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
                   checked={ecoFilter.has(letter)}
                   onChange={() => setEcoFilter((prev) => toggle(prev, letter))}
                 />
-                {letter} – {ECO_LABELS[letter]}
+                {letter} – {ECO_LABELS[letter]} ({ecoCounts.get(letter)})
               </label>
             ))}
           </span>
@@ -173,7 +197,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
                   checked={firstMoveFilter.has(move)}
                   onChange={() => setFirstMoveFilter((prev) => toggle(prev, move))}
                 />
-                {FIRST_MOVE_LABELS[move]}
+                {FIRST_MOVE_LABELS[move]} ({firstMoveCounts.get(move)})
               </label>
             ))}
           </span>
