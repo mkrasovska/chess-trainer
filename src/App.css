@@ -219,6 +219,20 @@
   font-size: 13px;
 }
 
+.archive-import__file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.archive-import__file-name {
+  font-size: 13px;
+  color: var(--text, #6b6375);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .archive-import__search-row {
   display: flex;
   gap: 8px;

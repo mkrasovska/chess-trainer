@@ -14,13 +14,16 @@ const MAX_PLAYERS = 100;
 function formatSize(bytes: number): string {
   const gb = bytes / 1024 ** 3;
   if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  return `${Math.round(bytes / 1024 ** 2)} MB`;
+  const mb = bytes / 1024 ** 2;
+  if (mb >= 1) return `${Math.round(mb)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlayers }: GameArchiveImportProps) {
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState<string | null>(null);
+  const [chosenFileName, setChosenFileName] = useState<string | null>(null);
 
   const [nameTerm, setNameTerm] = useState('');
   const [players, setPlayers] = useState<PlayerMatch[] | null>(null);
@@ -114,16 +117,26 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
         visits.
       </p>
 
-      <input
-        type="file"
-        accept=".zip,.pgn"
-        disabled={isAdding}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleAdd(file);
-          e.target.value = '';
-        }}
-      />
+      <div className="archive-import__file-row">
+        <input
+          type="file"
+          accept=".zip,.pgn"
+          disabled={isAdding}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setChosenFileName(file.name);
+              handleAdd(file);
+            }
+            // Reset so picking the exact same file again still fires onChange
+            // (e.g. retrying after an error) -- this also blanks the native
+            // input's own "chosen file" label, which is why we track the name
+            // ourselves above instead of relying on that label.
+            e.target.value = '';
+          }}
+        />
+        {chosenFileName && <span className="archive-import__file-name">{chosenFileName}</span>}
+      </div>
       {isAdding && <p className="archive-import__status">Adding to library...</p>}
       {!isAdding && addStatus && <p className="archive-import__status">{addStatus}</p>}
 
