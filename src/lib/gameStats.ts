@@ -94,11 +94,40 @@ function average(values: number[]): number | null {
   return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
 }
 
+export type OpeningStat = {
+  name: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  count: number;
+};
+
+/** Per-opening win/loss/draw breakdown for a player, sorted by how often it was played. */
+export function getOpeningBreakdown(games: PgnGame[], player: PlayerMatch): OpeningStat[] {
+  const byOpening = new Map<string, Record_>();
+
+  for (const game of games) {
+    const color = getColor(game.headers, player);
+    if (!color) continue;
+    const outcome = getOutcome(game.headers, color);
+
+    const openingName = getOpeningName(game.headers) ?? (game.headers.ECO ? `ECO ${game.headers.ECO}` : null);
+    if (!openingName) continue;
+
+    const record = byOpening.get(openingName) ?? makeRecord();
+    tallyOutcome(record, outcome);
+    byOpening.set(openingName, record);
+  }
+
+  return Array.from(byOpening.entries())
+    .map(([name, record]) => ({ name, ...record }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
 /** Builds a compact, plain-text statistical summary of a player's games, for feeding to an LLM. */
 export function buildPlayerSummary(games: PgnGame[], player: PlayerMatch): string {
   const overall = makeRecord();
   const byColor: Record<Color, Record_> = { white: makeRecord(), black: makeRecord() };
-  const byOpening = new Map<string, Record_>();
   const ownElos: number[] = [];
   const opponentElos: number[] = [];
 
@@ -110,23 +139,15 @@ export function buildPlayerSummary(games: PgnGame[], player: PlayerMatch): strin
     tallyOutcome(overall, outcome);
     tallyOutcome(byColor[color], outcome);
 
-    const openingName = getOpeningName(game.headers) ?? (game.headers.ECO ? `ECO ${game.headers.ECO}` : null);
-    if (openingName) {
-      const record = byOpening.get(openingName) ?? makeRecord();
-      tallyOutcome(record, outcome);
-      byOpening.set(openingName, record);
-    }
-
     const ownElo = Number(color === 'white' ? game.headers.WhiteElo : game.headers.BlackElo);
     const oppElo = Number(color === 'white' ? game.headers.BlackElo : game.headers.WhiteElo);
     if (Number.isFinite(ownElo) && ownElo > 0) ownElos.push(ownElo);
     if (Number.isFinite(oppElo) && oppElo > 0) opponentElos.push(oppElo);
   }
 
-  const topOpenings = Array.from(byOpening.entries())
-    .sort((a, b) => b[1].count - a[1].count)
+  const topOpenings = getOpeningBreakdown(games, player)
     .slice(0, 8)
-    .map(([name, record]) => `- ${name}: ${fmtRecord(record)}`)
+    .map((stat) => `- ${stat.name}: ${fmtRecord(stat)}`)
     .join('\n');
 
   const ownEloAvg = average(ownElos);

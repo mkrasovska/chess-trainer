@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAiRequest } from '../hooks/useAiRequest';
 import { AiResultPanel } from './AiResultPanel';
+import { OpeningStats } from './OpeningStats';
 import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
 import {
   buildPlayerProfilePrompt,
@@ -11,6 +12,7 @@ import {
   getColor,
   getEcoLetter,
   getFirstMove,
+  getOpeningBreakdown,
   getOpeningName,
   getOutcome,
   getYear,
@@ -110,6 +112,11 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         return true;
       }),
     [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum],
+  );
+
+  const openingStats = useMemo(
+    () => getOpeningBreakdown(filteredRows.map((row) => row.game), selectedPlayer),
+    [filteredRows, selectedPlayer],
   );
 
   return (
@@ -219,6 +226,8 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
       </div>
 
       <AiResultPanel result={aboutPlayerResult} error={aboutPlayerError} onClose={clearAboutPlayer} />
+
+      <OpeningStats stats={openingStats} />
 
       <div className="games-table-wrap">
         <table className="games-table">
