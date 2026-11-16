@@ -147,7 +147,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     <div>
       <div className="games-table__filters">
         <span className="games-table__filter-group">
-          Color:
+          <span className="games-table__filter-label">Color</span>
           {COLOR_OPTIONS.map((option) => (
             <label key={option.value}>
               <input
@@ -160,7 +160,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           ))}
         </span>
         <span className="games-table__filter-group">
-          Result:
+          <span className="games-table__filter-label">Result</span>
           {OUTCOME_OPTIONS.map((option) => (
             <label key={option.value}>
               <input
@@ -174,7 +174,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         </span>
         {availableEcoLetters.length > 0 && (
           <span className="games-table__filter-group">
-            ECO:
+            <span className="games-table__filter-label">ECO</span>
             {availableEcoLetters.map((letter) => (
               <label key={letter} title={ECO_LABELS[letter]}>
                 <input
@@ -189,7 +189,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         )}
         {availableFirstMoves.length > 0 && (
           <span className="games-table__filter-group">
-            First move:
+            <span className="games-table__filter-label">First move</span>
             {availableFirstMoves.map((move) => (
               <label key={move}>
                 <input
@@ -204,7 +204,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         )}
         {availableOpeningNames.length > 0 && (
           <span className="games-table__filter-group">
-            Opening:
+            <span className="games-table__filter-label">Opening</span>
             <div className="games-table__opening-list">
               {availableOpeningNames.map(([name, count]) => (
                 <label key={name}>
@@ -220,7 +220,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           </span>
         )}
         <span className="games-table__filter-group">
-          Year:
+          <span className="games-table__filter-label">Year</span>
           <input
             type="number"
             className="games-table__year-input"
