@@ -166,7 +166,7 @@ function App() {
               className={importTab === 'archive' ? 'app__tab app__tab--active' : 'app__tab'}
               onClick={() => setImportTab('archive')}
             >
-              TWIC archive
+              Download PGN
             </button>
             <button
               type="button"

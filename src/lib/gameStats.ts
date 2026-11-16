@@ -41,8 +41,11 @@ export function getOpeningName(headers: Record<string, string>): string | null {
 }
 
 export function getFirstMove(raw: string): FirstMove | null {
-  const separatorIndex = raw.indexOf('\n\n');
-  const moveText = separatorIndex === -1 ? raw : raw.slice(separatorIndex + 2);
+  // Normalize CRLF so the blank-line header/body boundary (a bare "\n\n") is still
+  // found on Windows-style exports, where it's actually "\r\n\r\n".
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const separatorIndex = normalized.indexOf('\n\n');
+  const moveText = separatorIndex === -1 ? normalized : normalized.slice(separatorIndex + 2);
   const match = moveText.match(/1\.\s*(\S+)/);
   if (!match) return null;
   const move = match[1].replace(/[+#!?]+$/g, '');

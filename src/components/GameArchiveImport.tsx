@@ -105,8 +105,13 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
         Build a local game database from{' '}
         <a href="https://theweekinchess.com/twic" target="_blank" rel="noreferrer">
           The Week in Chess
+        </a>
+        , from{' '}
+        <a href="https://s2.chess-results.com/partiesuche.aspx?lan=1" target="_blank" rel="noreferrer">
+          chess-results.com
         </a>{' '}
-        issues, or any .pgn database — added files stay in your browser between visits.
+        (search a player, check "Download PGN"), or any .pgn database — added files stay in your browser between
+        visits.
       </p>
 
       <input
