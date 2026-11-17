@@ -28,6 +28,13 @@
   max-width: 100%;
 }
 
+.app__game-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h, #08060d);
+  margin: 0 0 6px;
+}
+
 .eval-bar {
   display: flex;
   flex-direction: column;

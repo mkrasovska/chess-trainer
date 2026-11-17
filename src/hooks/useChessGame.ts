@@ -1,5 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Chess, type Move } from 'chess.js';
+import { getYear } from '../lib/gameStats';
+import { parsePgnHeaders } from '../lib/pgnUtils';
+
+export type LoadedGameInfo = {
+  white: string;
+  black: string;
+  year: number | null;
+};
 
 function computeFens(moves: Move[], startFen?: string): string[] {
   const scratch = startFen ? new Chess(startFen) : new Chess();
@@ -21,6 +29,7 @@ export function useChessGame() {
   const [moves, setMoves] = useState<Move[]>([]);
   const [currentPly, setCurrentPly] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [gameInfo, setGameInfo] = useState<LoadedGameInfo | null>(null);
 
   const branchRef = useRef<Branch | null>(null);
   const [branchMoves, setBranchMoves] = useState<Move[]>([]);
@@ -63,6 +72,13 @@ export function useChessGame() {
       setCurrentPly(loadedMoves.length);
       exitBranch();
       setError(null);
+
+      const headers = parsePgnHeaders(pgn);
+      setGameInfo({
+        white: headers.White || 'Unknown',
+        black: headers.Black || 'Unknown',
+        year: getYear(headers),
+      });
     } catch {
       setError('Could not parse this PGN.');
     }
@@ -146,6 +162,7 @@ export function useChessGame() {
     setMoves([]);
     setCurrentPly(0);
     setError(null);
+    setGameInfo(null);
     exitBranch();
   }, [game, exitBranch]);
 
@@ -156,6 +173,7 @@ export function useChessGame() {
     currentFen,
     previousFen,
     lastMoveSan,
+    gameInfo,
     isAtLatest,
     isBranching,
     branchMoves,

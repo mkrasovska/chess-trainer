@@ -35,6 +35,7 @@ function App() {
     currentFen,
     previousFen,
     lastMoveSan,
+    gameInfo,
     isBranching,
     branchMoves,
     error,
@@ -124,6 +125,12 @@ function App() {
             depth={line?.depth ?? null}
           />
           <div className="app__board">
+            {gameInfo && (
+              <p className="app__game-info">
+                {gameInfo.white} vs {gameInfo.black}
+                {gameInfo.year !== null && ` (${gameInfo.year})`}
+              </p>
+            )}
             <Board fen={currentFen} onMove={makeMove} arrows={arrows} />
             <div className="app__nav">
               <button type="button" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
