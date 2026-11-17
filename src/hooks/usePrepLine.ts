@@ -10,11 +10,11 @@ export function usePrepLine() {
   const fen = game.fen();
   const atMax = moves.length >= PREP_MAX_PLIES;
 
-  const makeMove = useCallback(
-    (from: string, to: string, promotion = 'q') => {
+  const applyMove = useCallback(
+    (mutate: () => void) => {
       if (moves.length >= PREP_MAX_PLIES) return false;
       try {
-        game.move({ from, to, promotion });
+        mutate();
         setMoves(game.history({ verbose: true }));
         return true;
       } catch {
@@ -24,19 +24,12 @@ export function usePrepLine() {
     [game, moves.length],
   );
 
-  const makeMoveSan = useCallback(
-    (san: string) => {
-      if (moves.length >= PREP_MAX_PLIES) return false;
-      try {
-        game.move(san);
-        setMoves(game.history({ verbose: true }));
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [game, moves.length],
+  const makeMove = useCallback(
+    (from: string, to: string, promotion = 'q') => applyMove(() => game.move({ from, to, promotion })),
+    [applyMove, game],
   );
+
+  const makeMoveSan = useCallback((san: string) => applyMove(() => game.move(san)), [applyMove, game]);
 
   const undo = useCallback(() => {
     game.undo();

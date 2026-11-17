@@ -37,6 +37,10 @@ function runTx<T>(db: IDBDatabase, mode: IDBTransactionMode, fn: (store: IDBObje
   });
 }
 
+// Invalidated whenever the library's contents change, so loadLibraryGames doesn't
+// re-read and re-parse every file on every call within the same session.
+let cachedGames: Promise<PgnGame[]> | null = null;
+
 export async function addArchiveToLibrary(name: string, blob: Blob): Promise<LibraryEntry> {
   if (navigator.storage?.persist) {
     navigator.storage.persist().catch(() => undefined);
@@ -47,6 +51,7 @@ export async function addArchiveToLibrary(name: string, blob: Blob): Promise<Lib
     const addedAt = Date.now();
     const record: StoredRecord = { id, name, size: blob.size, addedAt, blob };
     await runTx(db, 'readwrite', (store) => store.put(record));
+    cachedGames = null;
     return { id, name, size: blob.size, addedAt };
   } finally {
     db.close();
@@ -69,6 +74,7 @@ export async function removeFromLibrary(id: string): Promise<void> {
   const db = await openDb();
   try {
     await runTx(db, 'readwrite', (store) => store.delete(id));
+    cachedGames = null;
   } finally {
     db.close();
   }
@@ -87,14 +93,15 @@ export async function getLibraryBlobs(): Promise<{ id: string; blob: Blob }[]> {
 /**
  * Reads and parses every file in the library into one in-memory game list.
  * Library files are expected to be at most a few MB each, so loading them
- * whole (rather than streaming) is simple and plenty fast.
+ * whole (rather than streaming) is simple and plenty fast. Cached until the
+ * library's contents change, since a search step and a fetch-that-player's-
+ * games step both call this for the same library within one flow.
  */
-export async function loadLibraryGames(): Promise<PgnGame[]> {
-  const sources = await getLibraryBlobs();
-  const games: PgnGame[] = [];
-  for (const source of sources) {
-    const text = await source.blob.text();
-    games.push(...loadPgnGames(text));
-  }
-  return games;
+export function loadLibraryGames(): Promise<PgnGame[]> {
+  cachedGames ??= (async () => {
+    const sources = await getLibraryBlobs();
+    const texts = await Promise.all(sources.map((source) => source.blob.text()));
+    return texts.flatMap((text) => loadPgnGames(text));
+  })();
+  return cachedGames;
 }

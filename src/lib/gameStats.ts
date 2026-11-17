@@ -1,6 +1,5 @@
-import { historyIfMatchesPrefix } from './prepMatch';
+import { historyMatchesPrefix } from './prepMatch';
 import type { PlayerMatch } from './playerMatch';
-import type { PgnGame } from './pgnUtils';
 
 export type Color = 'white' | 'black';
 export type Outcome = 'win' | 'loss' | 'draw' | 'unknown';
@@ -52,22 +51,27 @@ export type OpeningStat = {
   count: number;
 };
 
+type HistoryEntry = { headers: Record<string, string>; history: string[] | null };
+
 /**
  * Win/loss/draw breakdown of whichever move came right after `priorMoveSans`,
  * among games whose actual history starts with that exact sequence. An empty
  * `priorMoveSans` gives the breakdown of the literal first move.
+ *
+ * Takes each game's already-parsed history (rather than raw PGN text) so
+ * callers that already cache it per game don't re-parse it here.
  */
-export function getNextMoveBreakdown(games: PgnGame[], player: PlayerMatch, priorMoveSans: string[]): OpeningStat[] {
+export function getNextMoveBreakdown(games: HistoryEntry[], player: PlayerMatch, priorMoveSans: string[]): OpeningStat[] {
   const byMove = new Map<string, Record_>();
 
   for (const game of games) {
+    if (!historyMatchesPrefix(game.history, priorMoveSans)) continue;
+    const nextMove = game.history?.[priorMoveSans.length];
+    if (!nextMove) continue;
+
     const color = getColor(game.headers, player);
     if (!color) continue;
     const outcome = getOutcome(game.headers, color);
-
-    const history = historyIfMatchesPrefix(game.raw, priorMoveSans);
-    const nextMove = history?.[priorMoveSans.length];
-    if (!nextMove) continue;
 
     const record = byMove.get(nextMove) ?? makeRecord();
     tallyOutcome(record, outcome);

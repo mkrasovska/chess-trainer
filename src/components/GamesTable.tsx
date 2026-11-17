@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { OpeningStats } from './OpeningStats';
 import { PatternFilter } from './PatternFilter';
 import { usePrepLine } from '../hooks/usePrepLine';
-import { historyIfMatchesPrefix } from '../lib/prepMatch';
+import { getHistory, historyMatchesPrefix } from '../lib/prepMatch';
 import { getColor, getNextMoveBreakdown, getOutcome, getYear, type Color, type Outcome } from '../lib/gameStats';
 import type { PlayerMatch } from '../lib/playerMatch';
 import type { PgnGame } from '../lib/pgnUtils';
@@ -38,6 +38,9 @@ type Row = {
   color: Color | null;
   outcome: Outcome;
   year: number | null;
+  // Parsed once per game (not per filter check) since chess.js parsing is the
+  // expensive part of matching a game against the move-pattern filter.
+  history: string[] | null;
 };
 
 type FilterGroup = 'color' | 'outcome' | 'year' | 'pattern';
@@ -68,6 +71,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           color,
           outcome: getOutcome(game.headers, color),
           year: getYear(game.headers),
+          history: getHistory(game.raw),
         };
       }),
     [games, selectedPlayer],
@@ -85,10 +89,19 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
       if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
       if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
     }
-    if (exclude !== 'pattern' && moveSans.length > 0 && historyIfMatchesPrefix(row.game.raw, moveSans) === null) {
-      return false;
-    }
+    if (exclude !== 'pattern' && moveSans.length > 0 && !historyMatchesPrefix(row.history, moveSans)) return false;
     return true;
+  };
+
+  // Tallies rows matching `keyOf` into counts, applying every filter except `exclude` —
+  // shared by colorCounts/outcomeCounts, which differ only in which field they key by.
+  const countBy = <K extends string>(exclude: FilterGroup, keys: readonly K[], keyOf: (row: Row) => K | null) => {
+    const counts = Object.fromEntries(keys.map((key) => [key, 0])) as Record<K, number>;
+    for (const row of rows) {
+      const key = keyOf(row);
+      if (key !== null && matchesFilters(row, exclude)) counts[key]++;
+    }
+    return counts;
   };
 
   const filteredRows = useMemo(
@@ -96,24 +109,26 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans],
   );
 
-  const colorCounts = useMemo(() => {
-    const counts: Record<Color, number> = { white: 0, black: 0 };
-    for (const row of rows) if (row.color && matchesFilters(row, 'color')) counts[row.color]++;
-    return counts;
-  }, [rows, outcomeFilter, yearFromNum, yearToNum, moveSans]);
+  const colorCounts = useMemo(
+    () => countBy('color', ['white', 'black'] as const, (row) => row.color),
+    [rows, outcomeFilter, yearFromNum, yearToNum, moveSans],
+  );
 
-  const outcomeCounts = useMemo(() => {
-    const counts: Record<FilterableOutcome, number> = { win: 0, loss: 0, draw: 0 };
-    for (const row of rows) if (row.outcome !== 'unknown' && matchesFilters(row, 'outcome')) counts[row.outcome]++;
-    return counts;
-  }, [rows, colorFilter, yearFromNum, yearToNum, moveSans]);
+  const outcomeCounts = useMemo(
+    () => countBy('outcome', ['win', 'loss', 'draw'] as const, (row) => (row.outcome === 'unknown' ? null : row.outcome)),
+    [rows, colorFilter, yearFromNum, yearToNum, moveSans],
+  );
 
-  // Games passing every filter except the move pattern itself, i.e. exactly the set
+  // Rows passing every filter except the move pattern itself, i.e. exactly the set
   // the pattern filter should be narrowing down from. getNextMoveBreakdown does its
   // own prefix check internally to find what's actually playable next.
   const nextMoveStats = useMemo(() => {
-    const otherFilteredGames = rows.filter((row) => matchesFilters(row, 'pattern')).map((row) => row.game);
-    return getNextMoveBreakdown(otherFilteredGames, selectedPlayer, moveSans);
+    const otherFilteredRows = rows.filter((row) => matchesFilters(row, 'pattern'));
+    return getNextMoveBreakdown(
+      otherFilteredRows.map((row) => ({ headers: row.game.headers, history: row.history })),
+      selectedPlayer,
+      moveSans,
+    );
   }, [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans, selectedPlayer]);
 
   if (games.length <= 1) return null;

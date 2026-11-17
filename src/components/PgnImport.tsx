@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { findPlayersInGames, getGamesForPlayer, type PlayerMatch } from '../lib/playerMatch';
+import { findPlayersInGames, getGamesForPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
 import { GamesTable } from './GamesTable';
 
@@ -7,8 +7,6 @@ type PgnImportProps = {
   onLoad: (pgn: string) => void;
   error: string | null;
 };
-
-const MAX_PLAYERS = 100;
 
 export function PgnImport({ onLoad, error }: PgnImportProps) {
   const [pgnText, setPgnText] = useState('');

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AiSettings } from './components/AiSettings';
 import { Board } from './components/Board';
 import { EvalBar } from './components/EvalBar';
@@ -77,21 +77,26 @@ function App() {
 
   // Left/right arrow keys step through moves, same as the |< < > >| buttons.
   // Ignored while typing in a text field elsewhere on the page (filters, paste box, etc.).
+  // goPrev/goNext get a new identity on every move, so they're read through a ref
+  // rather than listed as effect deps -- that keeps one listener attached for the
+  // component's lifetime instead of detaching/reattaching it on every navigation.
+  const navRef = useRef({ goPrev, goNext });
+  navRef.current = { goPrev, goNext };
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        goPrev();
+        navRef.current.goPrev();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        goNext();
+        navRef.current.goNext();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goPrev, goNext]);
+  }, []);
 
   const sideToMove = (currentFen.split(' ')[1] === 'b' ? 'b' : 'w') as 'w' | 'b';
   const arrows = useMemo(() => (bestMove ? [uciToArrow(bestMove)] : []), [bestMove]);

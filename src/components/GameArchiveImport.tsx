@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react';
 import { extractPgnFromFile, IN_MEMORY_LIMIT_BYTES } from '../lib/archiveFile';
 import { addArchiveToLibrary, listLibrary, loadLibraryGames, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
-import { findPlayersInGames, type PlayerMatch } from '../lib/playerMatch';
+import { findPlayersInGames, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 
 type GameArchiveImportProps = {
   selectedPlayer: PlayerMatch | null;
   onSelectPlayer: (player: PlayerMatch) => void;
   onBackToPlayers: () => void;
 };
-
-const MAX_PLAYERS = 100;
 
 function formatSize(bytes: number): string {
   const gb = bytes / 1024 ** 3;

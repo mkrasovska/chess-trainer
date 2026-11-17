@@ -6,6 +6,8 @@ export type PlayerMatch = {
   gameCount: number;
 };
 
+export const MAX_PLAYERS = 100;
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -19,7 +21,7 @@ export function findPlayersInGames(games: PgnGame[], term: string, maxPlayers: n
   const matcher = new RegExp(escapeRegExp(term.trim()), 'i');
   const found = new Map<string, PlayerMatch>();
 
-  for (const game of games) {
+  outer: for (const game of games) {
     for (const side of ['White', 'Black'] as const) {
       const name = game.headers[side];
       if (!name || !matcher.test(name)) continue;
@@ -27,8 +29,12 @@ export function findPlayersInGames(games: PgnGame[], term: string, maxPlayers: n
       const fideId = game.headers[`${side}FideId`] ?? null;
       const key = playerKey(name, fideId);
       const existing = found.get(key);
-      if (existing) existing.gameCount += 1;
-      else if (found.size < maxPlayers) found.set(key, { name, fideId, gameCount: 1 });
+      if (existing) {
+        existing.gameCount += 1;
+      } else {
+        if (found.size >= maxPlayers) break outer;
+        found.set(key, { name, fideId, gameCount: 1 });
+      }
     }
   }
 
