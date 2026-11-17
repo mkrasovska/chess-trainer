@@ -51,6 +51,18 @@ function toggle<T>(set: Set<T>, value: T): Set<T> {
   return next;
 }
 
+type Row = {
+  game: PgnGame;
+  color: Color | null;
+  outcome: Outcome;
+  eco: EcoLetter | null;
+  firstMove: FirstMove | null;
+  openingName: string | null;
+  year: number | null;
+};
+
+type FilterGroup = 'color' | 'outcome' | 'eco' | 'firstMove' | 'openingName' | 'year';
+
 export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTableProps) {
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
@@ -79,23 +91,54 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     [games, selectedPlayer],
   );
 
+  const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
+  const yearToNum = yearTo.trim() ? Number(yearTo) : null;
+
+  // Checks a row against every active filter except `exclude`, so each filter group's
+  // own counters reflect every OTHER group's current selection without zeroing itself out.
+  const matchesFilters = (row: Row, exclude: FilterGroup | null): boolean => {
+    if (exclude !== 'color' && colorFilter.size > 0 && (row.color === null || !colorFilter.has(row.color))) return false;
+    if (exclude !== 'outcome' && outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
+    if (exclude !== 'eco' && ecoFilter.size > 0 && (row.eco === null || !ecoFilter.has(row.eco))) return false;
+    if (exclude !== 'firstMove' && firstMoveFilter.size > 0 && (row.firstMove === null || !firstMoveFilter.has(row.firstMove))) return false;
+    if (
+      exclude !== 'openingName' &&
+      openingNameFilter.size > 0 &&
+      (row.openingName === null || !openingNameFilter.has(row.openingName))
+    ) {
+      return false;
+    }
+    if (exclude !== 'year') {
+      if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
+      if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
+    }
+    return true;
+  };
+
+  const filteredRows = useMemo(
+    () => rows.filter((row) => matchesFilters(row, null)),
+    [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum],
+  );
+
   const colorCounts = useMemo(() => {
     const counts: Record<Color, number> = { white: 0, black: 0 };
-    for (const row of rows) if (row.color) counts[row.color]++;
+    for (const row of rows) if (row.color && matchesFilters(row, 'color')) counts[row.color]++;
     return counts;
-  }, [rows]);
+  }, [rows, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum]);
 
   const outcomeCounts = useMemo(() => {
     const counts: Record<FilterableOutcome, number> = { win: 0, loss: 0, draw: 0 };
-    for (const row of rows) if (row.outcome !== 'unknown') counts[row.outcome]++;
+    for (const row of rows) if (row.outcome !== 'unknown' && matchesFilters(row, 'outcome')) counts[row.outcome]++;
     return counts;
-  }, [rows]);
+  }, [rows, colorFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum]);
 
   const ecoCounts = useMemo(() => {
     const counts = new Map<EcoLetter, number>();
-    for (const row of rows) if (row.eco) counts.set(row.eco, (counts.get(row.eco) ?? 0) + 1);
+    for (const row of rows) {
+      if (row.eco && matchesFilters(row, 'eco')) counts.set(row.eco, (counts.get(row.eco) ?? 0) + 1);
+    }
     return counts;
-  }, [rows]);
+  }, [rows, colorFilter, outcomeFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum]);
 
   const availableEcoLetters = useMemo(
     () => ECO_ORDER.filter((letter) => rows.some((row) => row.eco === letter)),
@@ -104,40 +147,38 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
 
   const firstMoveCounts = useMemo(() => {
     const counts = new Map<FirstMove, number>();
-    for (const row of rows) if (row.firstMove) counts.set(row.firstMove, (counts.get(row.firstMove) ?? 0) + 1);
+    for (const row of rows) {
+      if (row.firstMove && matchesFilters(row, 'firstMove')) counts.set(row.firstMove, (counts.get(row.firstMove) ?? 0) + 1);
+    }
     return counts;
-  }, [rows]);
+  }, [rows, colorFilter, outcomeFilter, ecoFilter, openingNameFilter, yearFromNum, yearToNum]);
 
   const availableFirstMoves = useMemo(
     () => FIRST_MOVE_ORDER.filter((move) => rows.some((row) => row.firstMove === move)),
     [rows],
   );
 
+  // Names/order stay stable (based on the full unfiltered set) so checkboxes don't
+  // reshuffle or disappear as other filters narrow their counts down, possibly to 0.
   const availableOpeningNames = useMemo(() => {
     const counts = new Map<string, number>();
     for (const row of rows) {
       if (row.openingName) counts.set(row.openingName, (counts.get(row.openingName) ?? 0) + 1);
     }
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    return Array.from(counts.keys()).sort(
+      (a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0) || a.localeCompare(b),
+    );
   }, [rows]);
 
-  const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
-  const yearToNum = yearTo.trim() ? Number(yearTo) : null;
-
-  const filteredRows = useMemo(
-    () =>
-      rows.filter((row) => {
-        if (colorFilter.size > 0 && (row.color === null || !colorFilter.has(row.color))) return false;
-        if (outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
-        if (ecoFilter.size > 0 && (row.eco === null || !ecoFilter.has(row.eco))) return false;
-        if (firstMoveFilter.size > 0 && (row.firstMove === null || !firstMoveFilter.has(row.firstMove))) return false;
-        if (openingNameFilter.size > 0 && (row.openingName === null || !openingNameFilter.has(row.openingName))) return false;
-        if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
-        if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
-        return true;
-      }),
-    [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum],
-  );
+  const openingNameCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.openingName && matchesFilters(row, 'openingName')) {
+        counts.set(row.openingName, (counts.get(row.openingName) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, yearFromNum, yearToNum]);
 
   const openingStats = useMemo(
     () => getOpeningBreakdown(filteredRows.map((row) => row.game), selectedPlayer),
@@ -212,14 +253,14 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           <span className="games-table__filter-group">
             <span className="games-table__filter-label">Opening</span>
             <div className="games-table__opening-list">
-              {availableOpeningNames.map(([name, count]) => (
+              {availableOpeningNames.map((name) => (
                 <label key={name}>
                   <input
                     type="checkbox"
                     checked={openingNameFilter.has(name)}
                     onChange={() => setOpeningNameFilter((prev) => toggle(prev, name))}
                   />
-                  {name} ({count})
+                  {name} ({openingNameCounts.get(name) ?? 0})
                 </label>
               ))}
             </div>
