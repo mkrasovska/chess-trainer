@@ -16,9 +16,6 @@ export function OpeningStats({ stats, columnLabel }: OpeningStatsProps) {
             <tr>
               <th>{columnLabel}</th>
               <th>Games</th>
-              <th>W</th>
-              <th>L</th>
-              <th>D</th>
               <th>Win %</th>
               <th>Loss %</th>
               <th>Draw %</th>
@@ -29,9 +26,6 @@ export function OpeningStats({ stats, columnLabel }: OpeningStatsProps) {
               <tr key={stat.name}>
                 <td>{stat.name}</td>
                 <td>{stat.count}</td>
-                <td>{stat.wins}</td>
-                <td>{stat.losses}</td>
-                <td>{stat.draws}</td>
                 <td>{Math.round((stat.wins / stat.count) * 100)}%</td>
                 <td>{Math.round((stat.losses / stat.count) * 100)}%</td>
                 <td>{Math.round((stat.draws / stat.count) * 100)}%</td>
