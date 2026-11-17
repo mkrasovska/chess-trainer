@@ -39,6 +39,14 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
     refreshLibrary();
   }, []);
 
+  // Previous "Find players" results describe the library's old contents, so
+  // they go stale the moment a file is added or removed.
+  const clearPlayerSearch = () => {
+    setPlayers(null);
+    setPlayerSearchStatus(null);
+    onBackToPlayers();
+  };
+
   const totalSize = useMemo(() => library.reduce((sum, entry) => sum + entry.size, 0), [library]);
 
   const handleAdd = async (file: File) => {
@@ -57,6 +65,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
       }
       setAddStatus(`Added ${file.name} (${formatSize(file.size)}) to the library.`);
       await refreshLibrary();
+      clearPlayerSearch();
     } catch {
       setAddStatus('Could not read this file. Expected a .zip or .pgn file.');
     } finally {
@@ -67,6 +76,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
   const handleRemove = async (id: string) => {
     await removeFromLibrary(id);
     await refreshLibrary();
+    clearPlayerSearch();
   };
 
   const handleFindPlayers = async () => {
@@ -118,24 +128,26 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
       </p>
 
       <div className="archive-import__file-row">
-        <input
-          type="file"
-          accept=".zip,.pgn"
-          disabled={isAdding}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              setChosenFileName(file.name);
-              handleAdd(file);
-            }
-            // Reset so picking the exact same file again still fires onChange
-            // (e.g. retrying after an error) -- this also blanks the native
-            // input's own "chosen file" label, which is why we track the name
-            // ourselves above instead of relying on that label.
-            e.target.value = '';
-          }}
-        />
-        {chosenFileName && <span className="archive-import__file-name">{chosenFileName}</span>}
+        <label className="archive-import__file-button">
+          Choose file
+          <input
+            type="file"
+            accept=".zip,.pgn"
+            disabled={isAdding}
+            className="archive-import__file-input"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setChosenFileName(file.name);
+                handleAdd(file);
+              }
+              // Reset so picking the exact same file again still fires onChange
+              // (e.g. retrying after an error).
+              e.target.value = '';
+            }}
+          />
+        </label>
+        <span className="archive-import__file-name">{chosenFileName ?? 'No file chosen'}</span>
       </div>
       {isAdding && <p className="archive-import__status">Adding to library...</p>}
       {!isAdding && addStatus && <p className="archive-import__status">{addStatus}</p>}

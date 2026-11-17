@@ -233,6 +233,33 @@
   white-space: nowrap;
 }
 
+.archive-import__file-button {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  cursor: pointer;
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+  background: var(--code-bg, #f4f3ec);
+  font-size: 13px;
+}
+
+.archive-import__file-button:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.archive-import__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .archive-import__search-row {
   display: flex;
   gap: 8px;
