@@ -1,23 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchRecentGames, searchPlayers, type LichessGame } from '../lib/lichess';
+import { parsePgnHeaders, type PgnGame } from '../lib/pgnUtils';
+import type { PlayerMatch } from '../lib/playerMatch';
+import { GamesTable } from './GamesTable';
 
 type LichessImportProps = {
   onSelectGame: (pgn: string) => void;
 };
 
-function formatDate(timestamp: number) {
-  return new Date(timestamp).toLocaleDateString();
-}
-
-function resultLabel(game: LichessGame) {
-  if (!game.winner) return 'Draw';
-  return game.winner === 'white' ? `${game.white} won` : `${game.black} won`;
+// Lichess PGN headers use the account's canonical display name, which may differ
+// in case from whatever the user typed; GamesTable matches names exactly, so pull
+// the canonical spelling from the games we actually fetched.
+function resolveCanonicalName(games: LichessGame[], typed: string): string {
+  const lower = typed.toLowerCase();
+  for (const game of games) {
+    if (game.white.toLowerCase() === lower) return game.white;
+    if (game.black.toLowerCase() === lower) return game.black;
+  }
+  return typed;
 }
 
 export function LichessImport({ onSelectGame }: LichessImportProps) {
   const [username, setUsername] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [games, setGames] = useState<LichessGame[] | null>(null);
+  const [games, setGames] = useState<PgnGame[] | null>(null);
+  const [player, setPlayer] = useState<PlayerMatch | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
@@ -40,11 +47,16 @@ export function LichessImport({ onSelectGame }: LichessImportProps) {
     setIsLoading(true);
     setError(null);
     setGames(null);
+    setPlayer(null);
     setSuggestions([]);
     try {
       const fetched = await fetchRecentGames(name);
-      setGames(fetched);
-      if (fetched.length === 0) setError(`No recent games found for "${name}".`);
+      if (fetched.length === 0) {
+        setError(`No recent games found for "${name}".`);
+        return;
+      }
+      setGames(fetched.map((game) => ({ raw: game.pgn, headers: parsePgnHeaders(game.pgn) })));
+      setPlayer({ name: resolveCanonicalName(fetched, name), fideId: null, gameCount: fetched.length });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not fetch games from Lichess.');
     } finally {
@@ -97,25 +109,7 @@ export function LichessImport({ onSelectGame }: LichessImportProps) {
       {isLoading && <p className="lichess-import__status">Fetching games...</p>}
       {!isLoading && error && <p className="lichess-import__status lichess-import__status--error">{error}</p>}
 
-      {games && games.length > 0 && (
-        <div className="archive-import__results">
-          {games.map((game) => (
-            <button
-              type="button"
-              key={game.id}
-              className="archive-import__result"
-              onClick={() => onSelectGame(game.pgn)}
-            >
-              <span className="archive-import__players">
-                {game.white} ({game.whiteRating ?? '?'}) vs {game.black} ({game.blackRating ?? '?'})
-              </span>
-              <span className="archive-import__meta">
-                {resultLabel(game)} · {game.speed} · {game.openingName ?? 'Unknown opening'} · {formatDate(game.createdAt)}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      {games && player && <GamesTable games={games} selectedPlayer={player} onSelectGame={onSelectGame} />}
     </div>
   );
 }
