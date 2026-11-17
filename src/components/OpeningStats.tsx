@@ -48,6 +48,8 @@ export function OpeningStats({ openingStats, firstMoveStats }: OpeningStatsProps
                 <th>L</th>
                 <th>D</th>
                 <th>Win %</th>
+                <th>Loss %</th>
+                <th>Draw %</th>
               </tr>
             </thead>
             <tbody>
@@ -59,6 +61,8 @@ export function OpeningStats({ openingStats, firstMoveStats }: OpeningStatsProps
                   <td>{stat.losses}</td>
                   <td>{stat.draws}</td>
                   <td>{Math.round((stat.wins / stat.count) * 100)}%</td>
+                  <td>{Math.round((stat.losses / stat.count) * 100)}%</td>
+                  <td>{Math.round((stat.draws / stat.count) * 100)}%</td>
                 </tr>
               ))}
             </tbody>

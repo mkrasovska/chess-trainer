@@ -5,20 +5,22 @@ type BoardProps = {
   fen: string;
   onMove: (from: string, to: string) => boolean;
   arrows?: Arrow[];
+  id?: string;
+  size?: number;
 };
 
-const BOARD_SIZE = 480;
+const DEFAULT_BOARD_SIZE = 480;
 
-export function Board({ fen, onMove, arrows }: BoardProps) {
+export function Board({ fen, onMove, arrows, id = 'main-board', size = DEFAULT_BOARD_SIZE }: BoardProps) {
   return (
     <Chessboard
       options={{
-        id: 'main-board',
+        id,
         position: fen,
         arrows,
         boardStyle: {
-          width: BOARD_SIZE,
-          height: BOARD_SIZE,
+          width: size,
+          height: size,
           gridTemplateRows: 'repeat(8, 1fr)',
         },
         onPieceDrop: ({ sourceSquare, targetSquare }) => {

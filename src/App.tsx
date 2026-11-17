@@ -3,11 +3,11 @@ import { AiSettings } from './components/AiSettings';
 import { Board } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
-import { GamesTable } from './components/GamesTable';
 import { LichessImport } from './components/LichessImport';
 import { MoveAnalysis } from './components/MoveAnalysis';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
+import { PrepAgainstPlayer } from './components/PrepAgainstPlayer';
 import { useChessGame } from './hooks/useChessGame';
 import { useGameAnalysis } from './hooks/useGameAnalysis';
 import { useStockfish } from './hooks/useStockfish';
@@ -225,7 +225,7 @@ function App() {
           )}
           {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
           {playerGames.length > 0 && (
-            <GamesTable games={playerGames} onSelectGame={handleLoadPgn} selectedPlayer={selectedPlayer} />
+            <PrepAgainstPlayer games={playerGames} onSelectGame={handleLoadPgn} selectedPlayer={selectedPlayer} />
           )}
         </div>
       )}

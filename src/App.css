@@ -457,6 +457,31 @@
   margin-top: 24px;
 }
 
+.prep-against-player__board-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.prep-against-player__board {
+  width: 320px;
+  max-width: 100%;
+}
+
+.prep-against-player__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.prep-against-player__line {
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  max-width: 320px;
+}
+
 .games-table__filters {
   display: flex;
   align-items: center;
