@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { extractPgnFromFile, IN_MEMORY_LIMIT_BYTES } from '../lib/archiveFile';
-import { addArchiveToLibrary, getLibraryBlobs, listLibrary, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
-import { scanPlayers, type PlayerMatch } from '../lib/pgnStream';
+import { addArchiveToLibrary, listLibrary, loadLibraryGames, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
+import { findPlayersInGames, type PlayerMatch } from '../lib/playerMatch';
 
 type GameArchiveImportProps = {
   selectedPlayer: PlayerMatch | null;
@@ -23,15 +23,11 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState<string | null>(null);
-  const [chosenFileName, setChosenFileName] = useState<string | null>(null);
 
   const [nameTerm, setNameTerm] = useState('');
   const [players, setPlayers] = useState<PlayerMatch[] | null>(null);
   const [isSearchingPlayers, setIsSearchingPlayers] = useState(false);
   const [playerSearchStatus, setPlayerSearchStatus] = useState<string | null>(null);
-  const [playerProgress, setPlayerProgress] = useState(0);
-
-  const cancelRef = useRef(false);
 
   const refreshLibrary = () => listLibrary().then(setLibrary);
 
@@ -49,8 +45,6 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
     onBackToPlayers();
   };
 
-  const totalSize = useMemo(() => library.reduce((sum, entry) => sum + entry.size, 0), [library]);
-
   const handleAdd = async (file: File) => {
     setIsAdding(true);
     setAddStatus(null);
@@ -65,7 +59,6 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
       } else {
         await addArchiveToLibrary(file.name, file);
       }
-      setAddStatus(`Added ${file.name} (${formatSize(file.size)}) to the library.`);
       await refreshLibrary();
       clearPlayerSearch();
     } catch {
@@ -83,29 +76,20 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
 
   const handleFindPlayers = async () => {
     if (!nameTerm.trim() || library.length === 0) return;
-    cancelRef.current = false;
     onBackToPlayers();
     setIsSearchingPlayers(true);
     setPlayers(null);
-    setPlayerProgress(0);
     setPlayerSearchStatus(null);
     try {
-      const sources = await getLibraryBlobs();
-      const result = await scanPlayers(sources, {
-        term: nameTerm,
-        maxPlayers: MAX_PLAYERS,
-        onProgress: (bytesRead) => setPlayerProgress(totalSize > 0 ? bytesRead / totalSize : 0),
-        shouldStop: () => cancelRef.current,
-      });
-      setPlayers(result.players);
-      if (result.cancelled) {
-        setPlayerSearchStatus(`Search cancelled — ${result.players.length} players found so far.`);
-      } else if (result.hitLimit) {
-        setPlayerSearchStatus(`Stopped at the first ${MAX_PLAYERS} players — refine the name for fewer.`);
-      } else if (result.players.length === 0) {
+      const games = await loadLibraryGames();
+      const found = findPlayersInGames(games, nameTerm, MAX_PLAYERS);
+      setPlayers(found);
+      if (found.length === 0) {
         setPlayerSearchStatus(`No players found matching "${nameTerm.trim()}".`);
+      } else if (found.length >= MAX_PLAYERS) {
+        setPlayerSearchStatus(`Stopped at the first ${MAX_PLAYERS} players — refine the name for fewer.`);
       } else {
-        setPlayerSearchStatus(`Found ${result.players.length} player${result.players.length === 1 ? '' : 's'}.`);
+        setPlayerSearchStatus(`Found ${found.length} player${found.length === 1 ? '' : 's'}.`);
       }
     } catch {
       setPlayerSearchStatus('Could not search the library.');
@@ -139,26 +123,22 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
             className="archive-import__file-input"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) {
-                setChosenFileName(file.name);
-                handleAdd(file);
-              }
+              if (file) handleAdd(file);
               // Reset so picking the exact same file again still fires onChange
               // (e.g. retrying after an error).
               e.target.value = '';
             }}
           />
         </label>
-        <span className="archive-import__file-name">{chosenFileName ?? 'No file chosen'}</span>
+        <span className="archive-import__file-name">
+          {library.length === 0 ? 'No file selected' : `${library.length} file${library.length === 1 ? '' : 's'} selected`}
+        </span>
       </div>
       {isAdding && <p className="archive-import__status">Adding to library...</p>}
       {!isAdding && addStatus && <p className="archive-import__status">{addStatus}</p>}
 
       {library.length > 0 && (
         <div className="archive-import__library">
-          <p className="archive-import__library-total">
-            {library.length} file{library.length === 1 ? '' : 's'} · {formatSize(totalSize)} total
-          </p>
           {library.map((entry) => (
             <div className="archive-import__library-row" key={entry.id}>
               <span className="archive-import__library-name">{entry.name}</span>
@@ -184,20 +164,13 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
               if (e.key === 'Enter') handleFindPlayers();
             }}
           />
-          {!isSearchingPlayers && (
-            <button type="button" disabled={!nameTerm.trim()} onClick={handleFindPlayers}>
-              Find players
-            </button>
-          )}
-          {isSearchingPlayers && (
-            <button type="button" onClick={() => { cancelRef.current = true; }}>
-              Cancel
-            </button>
-          )}
+          <button type="button" disabled={isSearchingPlayers || !nameTerm.trim()} onClick={handleFindPlayers}>
+            Find players
+          </button>
         </div>
       )}
 
-      {isSearchingPlayers && <p className="archive-import__status">Scanning... {Math.round(playerProgress * 100)}%</p>}
+      {isSearchingPlayers && <p className="archive-import__status">Searching...</p>}
       {!isSearchingPlayers && playerSearchStatus && <p className="archive-import__status">{playerSearchStatus}</p>}
 
       {players && players.length > 0 && !selectedPlayer && (

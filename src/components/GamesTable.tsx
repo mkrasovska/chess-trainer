@@ -1,28 +1,10 @@
-import { useMemo, useState } from 'react';
-import { useAiRequest } from '../hooks/useAiRequest';
-import { AiResultPanel } from './AiResultPanel';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { OpeningStats } from './OpeningStats';
-import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
-import {
-  buildPlayerProfilePrompt,
-  ECO_LABELS,
-  ECO_ORDER,
-  FIRST_MOVE_LABELS,
-  FIRST_MOVE_ORDER,
-  getColor,
-  getEcoLetter,
-  getFirstMove,
-  getFirstMoveBreakdown,
-  getOpeningBreakdown,
-  getOpeningName,
-  getOutcome,
-  getYear,
-  type Color,
-  type EcoLetter,
-  type FirstMove,
-  type Outcome,
-} from '../lib/gameStats';
-import type { PlayerMatch } from '../lib/pgnStream';
+import { PatternFilter } from './PatternFilter';
+import { usePrepLine } from '../hooks/usePrepLine';
+import { historyIfMatchesPrefix } from '../lib/prepMatch';
+import { getColor, getNextMoveBreakdown, getOutcome, getYear, type Color, type Outcome } from '../lib/gameStats';
+import type { PlayerMatch } from '../lib/playerMatch';
 import type { PgnGame } from '../lib/pgnUtils';
 
 type GamesTableProps = {
@@ -55,24 +37,27 @@ type Row = {
   game: PgnGame;
   color: Color | null;
   outcome: Outcome;
-  eco: EcoLetter | null;
-  firstMove: FirstMove | null;
-  openingName: string | null;
   year: number | null;
 };
 
-type FilterGroup = 'color' | 'outcome' | 'eco' | 'firstMove' | 'openingName' | 'year';
+type FilterGroup = 'color' | 'outcome' | 'year' | 'pattern';
 
 export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTableProps) {
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
-  const [ecoFilter, setEcoFilter] = useState<Set<EcoLetter>>(new Set());
-  const [firstMoveFilter, setFirstMoveFilter] = useState<Set<FirstMove>>(new Set());
-  const [openingNameFilter, setOpeningNameFilter] = useState<Set<string>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
-  const { isLoading: isAskingAboutPlayer, result: aboutPlayerResult, error: aboutPlayerError, ask: askAboutPlayer, clear: clearAboutPlayer } = useAiRequest();
-  const providerLabel = AI_PROVIDERS.find((p) => p.id === getAiProvider())?.label ?? 'AI';
+
+  const { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset, atMax, maxPlies } = usePrepLine();
+  const moveSans = useMemo(() => moves.map((m) => m.san), [moves]);
+
+  // With 0 or 1 games there's nothing to filter/compare, so skip the filters/stats/table
+  // chrome entirely and just hand the one game straight to the analysis board.
+  const onSelectGameRef = useRef(onSelectGame);
+  onSelectGameRef.current = onSelectGame;
+  useEffect(() => {
+    if (games.length === 1) onSelectGameRef.current(games[0].raw);
+  }, [games]);
 
   const rows = useMemo(
     () =>
@@ -82,9 +67,6 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           game,
           color,
           outcome: getOutcome(game.headers, color),
-          eco: getEcoLetter(game.headers),
-          firstMove: getFirstMove(game.raw),
-          openingName: getOpeningName(game.headers),
           year: getYear(game.headers),
         };
       }),
@@ -99,96 +81,42 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const matchesFilters = (row: Row, exclude: FilterGroup | null): boolean => {
     if (exclude !== 'color' && colorFilter.size > 0 && (row.color === null || !colorFilter.has(row.color))) return false;
     if (exclude !== 'outcome' && outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
-    if (exclude !== 'eco' && ecoFilter.size > 0 && (row.eco === null || !ecoFilter.has(row.eco))) return false;
-    if (exclude !== 'firstMove' && firstMoveFilter.size > 0 && (row.firstMove === null || !firstMoveFilter.has(row.firstMove))) return false;
-    if (
-      exclude !== 'openingName' &&
-      openingNameFilter.size > 0 &&
-      (row.openingName === null || !openingNameFilter.has(row.openingName))
-    ) {
-      return false;
-    }
     if (exclude !== 'year') {
       if (yearFromNum !== null && (row.year === null || row.year < yearFromNum)) return false;
       if (yearToNum !== null && (row.year === null || row.year > yearToNum)) return false;
+    }
+    if (exclude !== 'pattern' && moveSans.length > 0 && historyIfMatchesPrefix(row.game.raw, moveSans) === null) {
+      return false;
     }
     return true;
   };
 
   const filteredRows = useMemo(
     () => rows.filter((row) => matchesFilters(row, null)),
-    [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum],
+    [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans],
   );
 
   const colorCounts = useMemo(() => {
     const counts: Record<Color, number> = { white: 0, black: 0 };
     for (const row of rows) if (row.color && matchesFilters(row, 'color')) counts[row.color]++;
     return counts;
-  }, [rows, outcomeFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum]);
+  }, [rows, outcomeFilter, yearFromNum, yearToNum, moveSans]);
 
   const outcomeCounts = useMemo(() => {
     const counts: Record<FilterableOutcome, number> = { win: 0, loss: 0, draw: 0 };
     for (const row of rows) if (row.outcome !== 'unknown' && matchesFilters(row, 'outcome')) counts[row.outcome]++;
     return counts;
-  }, [rows, colorFilter, ecoFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum]);
+  }, [rows, colorFilter, yearFromNum, yearToNum, moveSans]);
 
-  const ecoCounts = useMemo(() => {
-    const counts = new Map<EcoLetter, number>();
-    for (const row of rows) {
-      if (row.eco && matchesFilters(row, 'eco')) counts.set(row.eco, (counts.get(row.eco) ?? 0) + 1);
-    }
-    return counts;
-  }, [rows, colorFilter, outcomeFilter, firstMoveFilter, openingNameFilter, yearFromNum, yearToNum]);
+  // Games passing every filter except the move pattern itself, i.e. exactly the set
+  // the pattern filter should be narrowing down from. getNextMoveBreakdown does its
+  // own prefix check internally to find what's actually playable next.
+  const nextMoveStats = useMemo(() => {
+    const otherFilteredGames = rows.filter((row) => matchesFilters(row, 'pattern')).map((row) => row.game);
+    return getNextMoveBreakdown(otherFilteredGames, selectedPlayer, moveSans);
+  }, [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans, selectedPlayer]);
 
-  const availableEcoLetters = useMemo(
-    () => ECO_ORDER.filter((letter) => rows.some((row) => row.eco === letter)),
-    [rows],
-  );
-
-  const firstMoveCounts = useMemo(() => {
-    const counts = new Map<FirstMove, number>();
-    for (const row of rows) {
-      if (row.firstMove && matchesFilters(row, 'firstMove')) counts.set(row.firstMove, (counts.get(row.firstMove) ?? 0) + 1);
-    }
-    return counts;
-  }, [rows, colorFilter, outcomeFilter, ecoFilter, openingNameFilter, yearFromNum, yearToNum]);
-
-  const availableFirstMoves = useMemo(
-    () => FIRST_MOVE_ORDER.filter((move) => rows.some((row) => row.firstMove === move)),
-    [rows],
-  );
-
-  // Names/order stay stable (based on the full unfiltered set) so checkboxes don't
-  // reshuffle or disappear as other filters narrow their counts down, possibly to 0.
-  const availableOpeningNames = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      if (row.openingName) counts.set(row.openingName, (counts.get(row.openingName) ?? 0) + 1);
-    }
-    return Array.from(counts.keys()).sort(
-      (a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0) || a.localeCompare(b),
-    );
-  }, [rows]);
-
-  const openingNameCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      if (row.openingName && matchesFilters(row, 'openingName')) {
-        counts.set(row.openingName, (counts.get(row.openingName) ?? 0) + 1);
-      }
-    }
-    return counts;
-  }, [rows, colorFilter, outcomeFilter, ecoFilter, firstMoveFilter, yearFromNum, yearToNum]);
-
-  const openingStats = useMemo(
-    () => getOpeningBreakdown(filteredRows.map((row) => row.game), selectedPlayer),
-    [filteredRows, selectedPlayer],
-  );
-
-  const firstMoveStats = useMemo(
-    () => getFirstMoveBreakdown(filteredRows.map((row) => row.game), selectedPlayer),
-    [filteredRows, selectedPlayer],
-  );
+  if (games.length <= 1) return null;
 
   return (
     <div>
@@ -219,53 +147,6 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
             </label>
           ))}
         </span>
-        {availableEcoLetters.length > 0 && (
-          <span className="games-table__filter-group">
-            <span className="games-table__filter-label">ECO</span>
-            {availableEcoLetters.map((letter) => (
-              <label key={letter} title={ECO_LABELS[letter]}>
-                <input
-                  type="checkbox"
-                  checked={ecoFilter.has(letter)}
-                  onChange={() => setEcoFilter((prev) => toggle(prev, letter))}
-                />
-                {letter} – {ECO_LABELS[letter]} ({ecoCounts.get(letter)})
-              </label>
-            ))}
-          </span>
-        )}
-        {availableFirstMoves.length > 0 && (
-          <span className="games-table__filter-group">
-            <span className="games-table__filter-label">First move</span>
-            {availableFirstMoves.map((move) => (
-              <label key={move}>
-                <input
-                  type="checkbox"
-                  checked={firstMoveFilter.has(move)}
-                  onChange={() => setFirstMoveFilter((prev) => toggle(prev, move))}
-                />
-                {FIRST_MOVE_LABELS[move]} ({firstMoveCounts.get(move)})
-              </label>
-            ))}
-          </span>
-        )}
-        {availableOpeningNames.length > 0 && (
-          <span className="games-table__filter-group">
-            <span className="games-table__filter-label">Opening</span>
-            <div className="games-table__opening-list">
-              {availableOpeningNames.map((name) => (
-                <label key={name}>
-                  <input
-                    type="checkbox"
-                    checked={openingNameFilter.has(name)}
-                    onChange={() => setOpeningNameFilter((prev) => toggle(prev, name))}
-                  />
-                  {name} ({openingNameCounts.get(name) ?? 0})
-                </label>
-              ))}
-            </div>
-          </span>
-        )}
         <span className="games-table__filter-group">
           <span className="games-table__filter-label">Year</span>
           <input
@@ -287,18 +168,22 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
         <span className="games-table__filters-count">
           Showing {filteredRows.length} of {games.length} games
         </span>
-        <button
-          type="button"
-          disabled={isAskingAboutPlayer || filteredRows.length === 0}
-          onClick={() => askAboutPlayer(buildPlayerProfilePrompt(filteredRows.map((row) => row.game), selectedPlayer))}
-        >
-          {isAskingAboutPlayer ? `Asking ${providerLabel}...` : 'About player'}
-        </button>
       </div>
 
-      <AiResultPanel result={aboutPlayerResult} error={aboutPlayerError} onClose={clearAboutPlayer} />
+      <PatternFilter
+        fen={fen}
+        moves={moves}
+        nextMoveOptions={nextMoveStats}
+        onMove={makeMove}
+        onPickMove={makeMoveSan}
+        onTruncate={truncateTo}
+        onUndo={undo}
+        onReset={reset}
+        atMax={atMax}
+        maxPlies={maxPlies}
+      />
 
-      <OpeningStats openingStats={openingStats} firstMoveStats={firstMoveStats} />
+      <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
 
       <div className="games-table-wrap">
         <table className="games-table">

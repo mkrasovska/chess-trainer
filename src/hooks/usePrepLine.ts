@@ -24,8 +24,28 @@ export function usePrepLine() {
     [game, moves.length],
   );
 
+  const makeMoveSan = useCallback(
+    (san: string) => {
+      if (moves.length >= PREP_MAX_PLIES) return false;
+      try {
+        game.move(san);
+        setMoves(game.history({ verbose: true }));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [game, moves.length],
+  );
+
   const undo = useCallback(() => {
     game.undo();
+    setMoves(game.history({ verbose: true }));
+  }, [game]);
+
+  // Jumps back to right after the ply-th move (1-indexed), dropping everything after it.
+  const truncateTo = useCallback((ply: number) => {
+    while (game.history().length > ply) game.undo();
     setMoves(game.history({ verbose: true }));
   }, [game]);
 
@@ -34,5 +54,5 @@ export function usePrepLine() {
     setMoves([]);
   }, [game]);
 
-  return { fen, moves, makeMove, undo, reset, atMax, maxPlies: PREP_MAX_PLIES };
+  return { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset, atMax, maxPlies: PREP_MAX_PLIES };
 }

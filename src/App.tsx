@@ -1,23 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AiSettings } from './components/AiSettings';
 import { Board } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
+import { GamesTable } from './components/GamesTable';
 import { LichessImport } from './components/LichessImport';
 import { MoveAnalysis } from './components/MoveAnalysis';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
-import { PrepAgainstPlayer } from './components/PrepAgainstPlayer';
 import { useChessGame } from './hooks/useChessGame';
 import { useGameAnalysis } from './hooks/useGameAnalysis';
 import { useStockfish } from './hooks/useStockfish';
-import { getLibraryBlobs } from './lib/gameLibrary';
-import { scanGamesForPlayer, type PlayerMatch } from './lib/pgnStream';
+import { loadLibraryGames } from './lib/gameLibrary';
+import { getGamesForPlayer, type PlayerMatch } from './lib/playerMatch';
 import type { PgnGame } from './lib/pgnUtils';
 import './App.css';
 
 type ImportTab = 'paste' | 'archive' | 'lichess';
-const MAX_GAMES = 200;
 
 function uciToArrow(uciMove: string) {
   return {
@@ -47,6 +46,7 @@ function App() {
     goNext,
     goLast,
     returnToMainline,
+    reset,
   } = useChessGame();
 
   const { isReady, line, bestMove, evaluate } = useStockfish();
@@ -58,16 +58,40 @@ function App() {
     loadPgn(pgn);
   };
 
+  // Switching import tabs should drop whatever game/position was loaded, not carry
+  // it over to a tab the user is now looking at for a different purpose.
+  const handleTabChange = (tab: ImportTab) => {
+    setImportTab(tab);
+    gameAnalysis.clear();
+    reset();
+  };
+
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
   const [playerGames, setPlayerGames] = useState<PgnGame[]>([]);
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [gamesStatus, setGamesStatus] = useState<string | null>(null);
-  const [gamesProgress, setGamesProgress] = useState(0);
-  const cancelGamesRef = useRef(false);
 
   useEffect(() => {
     if (isReady) evaluate(currentFen);
   }, [isReady, currentFen, evaluate]);
+
+  // Left/right arrow keys step through moves, same as the |< < > >| buttons.
+  // Ignored while typing in a text field elsewhere on the page (filters, paste box, etc.).
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        goNext();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goPrev, goNext]);
 
   const sideToMove = (currentFen.split(' ')[1] === 'b' ? 'b' : 'w') as 'w' | 'b';
   const arrows = useMemo(() => (bestMove ? [uciToArrow(bestMove)] : []), [bestMove]);
@@ -79,30 +103,15 @@ function App() {
   };
 
   const handleSelectPlayer = async (player: PlayerMatch) => {
-    cancelGamesRef.current = false;
     setSelectedPlayer(player);
     setPlayerGames([]);
     setIsLoadingGames(true);
-    setGamesProgress(0);
     setGamesStatus(null);
     try {
-      const sources = await getLibraryBlobs();
-      const totalSize = sources.reduce((sum, source) => sum + source.blob.size, 0);
-      const result = await scanGamesForPlayer(sources, {
-        name: player.name,
-        fideId: player.fideId,
-        maxResults: MAX_GAMES,
-        onProgress: (bytesRead) => setGamesProgress(totalSize > 0 ? bytesRead / totalSize : 0),
-        shouldStop: () => cancelGamesRef.current,
-      });
-      setPlayerGames(result.games);
-      if (result.cancelled) {
-        setGamesStatus(`Search cancelled — ${result.games.length} games found so far.`);
-      } else if (result.hitLimit) {
-        setGamesStatus(`Stopped at the first ${MAX_GAMES} games.`);
-      } else {
-        setGamesStatus(`Found ${result.games.length} game${result.games.length === 1 ? '' : 's'}.`);
-      }
+      const games = await loadLibraryGames();
+      const matched = getGamesForPlayer(games, player.name, player.fideId);
+      setPlayerGames(matched);
+      setGamesStatus(`Found ${matched.length} game${matched.length === 1 ? '' : 's'}.`);
     } catch {
       setGamesStatus('Could not load games for this player.');
     } finally {
@@ -116,7 +125,53 @@ function App() {
         <h1>Chess Trainer</h1>
         <AiSettings />
       </div>
-      <div className="app__layout">
+
+      <div className="app__tabs">
+        <button
+          type="button"
+          className={importTab === 'paste' ? 'app__tab app__tab--active' : 'app__tab'}
+          onClick={() => handleTabChange('paste')}
+        >
+          Paste PGN
+        </button>
+        <button
+          type="button"
+          className={importTab === 'archive' ? 'app__tab app__tab--active' : 'app__tab'}
+          onClick={() => handleTabChange('archive')}
+        >
+          Download PGN
+        </button>
+        <button
+          type="button"
+          className={importTab === 'lichess' ? 'app__tab app__tab--active' : 'app__tab'}
+          onClick={() => handleTabChange('lichess')}
+        >
+          Lichess
+        </button>
+      </div>
+
+      {importTab === 'paste' && <PgnImport onLoad={handleLoadPgn} error={error} />}
+      {importTab === 'archive' && (
+        <>
+          <GameArchiveImport
+            selectedPlayer={selectedPlayer}
+            onSelectPlayer={handleSelectPlayer}
+            onBackToPlayers={handleBackToPlayers}
+          />
+          {selectedPlayer && (
+            <div className="games-table-section">
+              {isLoadingGames && <p className="archive-import__status">Loading games...</p>}
+              {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
+              {!isLoadingGames && (
+                <GamesTable games={playerGames} selectedPlayer={selectedPlayer} onSelectGame={handleLoadPgn} />
+              )}
+            </div>
+          )}
+        </>
+      )}
+      {importTab === 'lichess' && <LichessImport onSelectGame={handleLoadPgn} />}
+
+      <div className="app__board-panel">
         <div className="app__board-row">
           <EvalBar
             scoreCp={line?.scoreCp ?? null}
@@ -159,40 +214,7 @@ function App() {
             )}
           </div>
         </div>
-        <div className="app__sidebar">
-          <div className="app__tabs">
-            <button
-              type="button"
-              className={importTab === 'paste' ? 'app__tab app__tab--active' : 'app__tab'}
-              onClick={() => setImportTab('paste')}
-            >
-              Paste PGN
-            </button>
-            <button
-              type="button"
-              className={importTab === 'archive' ? 'app__tab app__tab--active' : 'app__tab'}
-              onClick={() => setImportTab('archive')}
-            >
-              Download PGN
-            </button>
-            <button
-              type="button"
-              className={importTab === 'lichess' ? 'app__tab app__tab--active' : 'app__tab'}
-              onClick={() => setImportTab('lichess')}
-            >
-              Lichess
-            </button>
-          </div>
-          {importTab === 'paste' && <PgnImport onLoad={handleLoadPgn} error={error} />}
-          {importTab === 'archive' && (
-            <GameArchiveImport
-              selectedPlayer={selectedPlayer}
-              onSelectPlayer={handleSelectPlayer}
-              onBackToPlayers={handleBackToPlayers}
-            />
-          )}
-          {importTab === 'lichess' && <LichessImport onSelectGame={handleLoadPgn} />}
-
+        <div className="app__movelist-column">
           {moves.length > 0 && (
             <div className="app__analysis-controls">
               {!gameAnalysis.isAnalyzing && (
@@ -219,23 +241,6 @@ function App() {
           />
         </div>
       </div>
-
-      {importTab === 'archive' && selectedPlayer && (
-        <div className="games-table-section">
-          {isLoadingGames && (
-            <p className="archive-import__status">
-              Loading games... {Math.round(gamesProgress * 100)}%{' '}
-              <button type="button" onClick={() => { cancelGamesRef.current = true; }}>
-                Cancel
-              </button>
-            </p>
-          )}
-          {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
-          {playerGames.length > 0 && (
-            <PrepAgainstPlayer games={playerGames} onSelectGame={handleLoadPgn} selectedPlayer={selectedPlayer} />
-          )}
-        </div>
-      )}
     </div>
   );
 }

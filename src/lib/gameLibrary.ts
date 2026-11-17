@@ -1,3 +1,5 @@
+import { loadPgnGames, type PgnGame } from './pgnUtils';
+
 const DB_NAME = 'chess-trainer-library';
 const DB_VERSION = 1;
 const STORE = 'archives';
@@ -80,4 +82,19 @@ export async function getLibraryBlobs(): Promise<{ id: string; blob: Blob }[]> {
   } finally {
     db.close();
   }
+}
+
+/**
+ * Reads and parses every file in the library into one in-memory game list.
+ * Library files are expected to be at most a few MB each, so loading them
+ * whole (rather than streaming) is simple and plenty fast.
+ */
+export async function loadLibraryGames(): Promise<PgnGame[]> {
+  const sources = await getLibraryBlobs();
+  const games: PgnGame[] = [];
+  for (const source of sources) {
+    const text = await source.blob.text();
+    games.push(...loadPgnGames(text));
+  }
+  return games;
 }
