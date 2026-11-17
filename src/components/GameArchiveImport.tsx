@@ -39,9 +39,11 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
     refreshLibrary();
   }, []);
 
-  // Previous "Find players" results describe the library's old contents, so
-  // they go stale the moment a file is added or removed.
+  // Previous "Find players" results (and the search term that produced them)
+  // describe the library's old contents, so they go stale the moment a file
+  // is added or removed.
   const clearPlayerSearch = () => {
+    setNameTerm('');
     setPlayers(null);
     setPlayerSearchStatus(null);
     onBackToPlayers();
