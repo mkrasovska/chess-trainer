@@ -124,6 +124,28 @@ export function getOpeningBreakdown(games: PgnGame[], player: PlayerMatch): Open
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
+/** Win/loss/draw breakdown by literal first move (e4/d4/c4/Nf3/Other), sorted by frequency. */
+export function getFirstMoveBreakdown(games: PgnGame[], player: PlayerMatch): OpeningStat[] {
+  const byMove = new Map<FirstMove, Record_>();
+
+  for (const game of games) {
+    const color = getColor(game.headers, player);
+    if (!color) continue;
+    const outcome = getOutcome(game.headers, color);
+
+    const move = getFirstMove(game.raw);
+    if (!move) continue;
+
+    const record = byMove.get(move) ?? makeRecord();
+    tallyOutcome(record, outcome);
+    byMove.set(move, record);
+  }
+
+  return Array.from(byMove.entries())
+    .map(([move, record]) => ({ name: FIRST_MOVE_LABELS[move], ...record }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
 /** Builds a compact, plain-text statistical summary of a player's games, for feeding to an LLM. */
 export function buildPlayerSummary(games: PgnGame[], player: PlayerMatch): string {
   const overall = makeRecord();

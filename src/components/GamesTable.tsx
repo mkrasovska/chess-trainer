@@ -12,6 +12,7 @@ import {
   getColor,
   getEcoLetter,
   getFirstMove,
+  getFirstMoveBreakdown,
   getOpeningBreakdown,
   getOpeningName,
   getOutcome,
@@ -143,6 +144,11 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     [filteredRows, selectedPlayer],
   );
 
+  const firstMoveStats = useMemo(
+    () => getFirstMoveBreakdown(filteredRows.map((row) => row.game), selectedPlayer),
+    [filteredRows, selectedPlayer],
+  );
+
   return (
     <div>
       <div className="games-table__filters">
@@ -251,7 +257,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
 
       <AiResultPanel result={aboutPlayerResult} error={aboutPlayerError} onClose={clearAboutPlayer} />
 
-      <OpeningStats stats={openingStats} />
+      <OpeningStats openingStats={openingStats} firstMoveStats={firstMoveStats} />
 
       <div className="games-table-wrap">
         <table className="games-table">
