@@ -19,8 +19,10 @@ export function Board({ fen, onMove, arrows, id = 'main-board', size = DEFAULT_B
         position: fen,
         arrows,
         boardStyle: {
-          width: size,
-          height: size,
+          // A plain pixel width/height would overflow a narrow (e.g. phone-width)
+          // container; shrink to fit while staying square, with no JS measurement.
+          width: `min(${size}px, 100%)`,
+          aspectRatio: '1 / 1',
           gridTemplateRows: 'repeat(8, 1fr)',
         },
         onPieceDrop: ({ sourceSquare, targetSquare }) => {

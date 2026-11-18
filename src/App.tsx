@@ -18,6 +18,12 @@ import './App.css';
 
 type ImportTab = 'paste' | 'archive' | 'lichess';
 
+const TAB_LABELS: Record<ImportTab, string> = {
+  paste: 'Paste PGN',
+  archive: 'Download PGN',
+  lichess: 'Lichess',
+};
+
 function uciToArrow(uciMove: string) {
   return {
     startSquare: uciMove.slice(0, 2),
@@ -70,6 +76,19 @@ function App() {
   const [playerGames, setPlayerGames] = useState<PgnGame[]>([]);
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [gamesStatus, setGamesStatus] = useState<string | null>(null);
+
+  // Once a specific game is loaded, the source/search/filter steps above are done
+  // being used -- collapse them out of the way and promote the board, instead of
+  // leaving it stranded below a (possibly long) games table. Collapsing only ever
+  // happens automatically on the not-loaded -> loaded edge (and expanding back on
+  // the reverse edge), so it never fights a manual toggle while a game stays loaded.
+  const isGameLoaded = gameInfo !== null;
+  const [setupCollapsed, setSetupCollapsed] = useState(false);
+  const wasGameLoadedRef = useRef(isGameLoaded);
+  useEffect(() => {
+    if (isGameLoaded !== wasGameLoadedRef.current) setSetupCollapsed(isGameLoaded);
+    wasGameLoadedRef.current = isGameLoaded;
+  }, [isGameLoaded]);
 
   useEffect(() => {
     if (isReady) evaluate(currentFen);
@@ -124,6 +143,13 @@ function App() {
     }
   };
 
+  // Hidden (not unmounted) and visually reordered via CSS `order` rather than JSX
+  // position, so collapsing/expanding never remounts the setup tabs (which would
+  // drop in-progress search state) or the board/analysis panel (which would drop
+  // an in-progress AI move-analysis request).
+  const showCollapsedView = isGameLoaded && setupCollapsed;
+  const setupSummary = `${TAB_LABELS[importTab]}${selectedPlayer ? ` · ${selectedPlayer.name}` : ''}`;
+
   return (
     <div className="app">
       <div className="app__header">
@@ -131,119 +157,135 @@ function App() {
         <AiSettings />
       </div>
 
-      <div className="app__tabs">
-        <button
-          type="button"
-          className={importTab === 'paste' ? 'app__tab app__tab--active' : 'app__tab'}
-          onClick={() => handleTabChange('paste')}
-        >
-          Paste PGN
-        </button>
-        <button
-          type="button"
-          className={importTab === 'archive' ? 'app__tab app__tab--active' : 'app__tab'}
-          onClick={() => handleTabChange('archive')}
-        >
-          Download PGN
-        </button>
-        <button
-          type="button"
-          className={importTab === 'lichess' ? 'app__tab app__tab--active' : 'app__tab'}
-          onClick={() => handleTabChange('lichess')}
-        >
-          Lichess
-        </button>
-      </div>
+      <div className="app__flow">
+        {isGameLoaded && (
+          <button
+            key="toggle"
+            type="button"
+            className="app__setup-toggle"
+            style={{ order: 0 }}
+            onClick={() => setSetupCollapsed((collapsed) => !collapsed)}
+          >
+            {showCollapsedView ? `▸ Show ${setupSummary}` : `▾ Hide ${setupSummary}`}
+          </button>
+        )}
 
-      {importTab === 'paste' && <PgnImport onLoad={handleLoadPgn} error={error} />}
-      {importTab === 'archive' && (
-        <>
-          <GameArchiveImport
-            selectedPlayer={selectedPlayer}
-            onSelectPlayer={handleSelectPlayer}
-            onBackToPlayers={handleBackToPlayers}
-          />
-          {selectedPlayer && (
-            <div className="games-table-section">
-              {isLoadingGames && <p className="archive-import__status">Loading games...</p>}
-              {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
-              {!isLoadingGames && (
-                <GamesTable games={playerGames} selectedPlayer={selectedPlayer} onSelectGame={handleLoadPgn} />
+        <div key="setup" style={{ order: showCollapsedView ? 2 : 1, display: showCollapsedView ? 'none' : undefined }}>
+          <div className="app__tabs">
+            <button
+              type="button"
+              className={importTab === 'paste' ? 'app__tab app__tab--active' : 'app__tab'}
+              onClick={() => handleTabChange('paste')}
+            >
+              Paste PGN
+            </button>
+            <button
+              type="button"
+              className={importTab === 'archive' ? 'app__tab app__tab--active' : 'app__tab'}
+              onClick={() => handleTabChange('archive')}
+            >
+              Download PGN
+            </button>
+            <button
+              type="button"
+              className={importTab === 'lichess' ? 'app__tab app__tab--active' : 'app__tab'}
+              onClick={() => handleTabChange('lichess')}
+            >
+              Lichess
+            </button>
+          </div>
+
+          {importTab === 'paste' && <PgnImport onLoad={handleLoadPgn} error={error} />}
+          {importTab === 'archive' && (
+            <>
+              <GameArchiveImport
+                selectedPlayer={selectedPlayer}
+                onSelectPlayer={handleSelectPlayer}
+                onBackToPlayers={handleBackToPlayers}
+              />
+              {selectedPlayer && (
+                <div className="games-table-section">
+                  {isLoadingGames && <p className="archive-import__status">Loading games...</p>}
+                  {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
+                  {!isLoadingGames && (
+                    <GamesTable games={playerGames} selectedPlayer={selectedPlayer} onSelectGame={handleLoadPgn} />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          {importTab === 'lichess' && <LichessImport onSelectGame={handleLoadPgn} />}
+        </div>
+
+        <div key="board" className="app__board-panel" style={{ order: showCollapsedView ? 1 : 2 }}>
+          <div className="app__board-row">
+            <EvalBar
+              scoreCp={line?.scoreCp ?? null}
+              scoreMate={line?.scoreMate ?? null}
+              sideToMove={sideToMove}
+              depth={line?.depth ?? null}
+            />
+            <div className="app__board">
+              {gameInfo && (
+                <p className="app__game-info">
+                  {gameInfo.white} vs {gameInfo.black}
+                  {gameInfo.year !== null && ` (${gameInfo.year})`}
+                </p>
+              )}
+              <Board fen={currentFen} onMove={makeMove} arrows={arrows} />
+              <div className="app__nav">
+                <button type="button" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
+                <button type="button" onClick={goPrev}>{'<'}</button>
+                <button type="button" onClick={goNext} disabled={isBranching}>{'>'}</button>
+                <button type="button" onClick={goLast} disabled={isBranching}>{'>|'}</button>
+              </div>
+              {isBranching && (
+                <div className="app__branch-banner">
+                  <span>
+                    Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
+                  </span>
+                  <button type="button" onClick={returnToMainline}>
+                    ← back to game
+                  </button>
+                </div>
+              )}
+              {lastMoveSan && previousFen && (
+                <MoveAnalysis
+                  key={`${previousFen}|${currentFen}`}
+                  fenBefore={previousFen}
+                  fenAfter={currentFen}
+                  moveSan={lastMoveSan}
+                  moverColor={previousFen.split(' ')[1] === 'b' ? 'b' : 'w'}
+                />
               )}
             </div>
-          )}
-        </>
-      )}
-      {importTab === 'lichess' && <LichessImport onSelectGame={handleLoadPgn} />}
-
-      <div className="app__board-panel">
-        <div className="app__board-row">
-          <EvalBar
-            scoreCp={line?.scoreCp ?? null}
-            scoreMate={line?.scoreMate ?? null}
-            sideToMove={sideToMove}
-            depth={line?.depth ?? null}
-          />
-          <div className="app__board">
-            {gameInfo && (
-              <p className="app__game-info">
-                {gameInfo.white} vs {gameInfo.black}
-                {gameInfo.year !== null && ` (${gameInfo.year})`}
-              </p>
-            )}
-            <Board fen={currentFen} onMove={makeMove} arrows={arrows} />
-            <div className="app__nav">
-              <button type="button" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
-              <button type="button" onClick={goPrev}>{'<'}</button>
-              <button type="button" onClick={goNext} disabled={isBranching}>{'>'}</button>
-              <button type="button" onClick={goLast} disabled={isBranching}>{'>|'}</button>
-            </div>
-            {isBranching && (
-              <div className="app__branch-banner">
-                <span>
-                  Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
-                </span>
-                <button type="button" onClick={returnToMainline}>
-                  ← back to game
-                </button>
+          </div>
+          <div className="app__movelist-column">
+            {moves.length > 0 && (
+              <div className="app__analysis-controls">
+                {!gameAnalysis.isAnalyzing && (
+                  <button type="button" onClick={() => gameAnalysis.analyze(fens)}>
+                    Analyze game
+                  </button>
+                )}
+                {gameAnalysis.isAnalyzing && (
+                  <>
+                    <span>Analyzing... {Math.round(gameAnalysis.progress * 100)}%</span>
+                    <button type="button" onClick={gameAnalysis.cancel}>
+                      Cancel
+                    </button>
+                  </>
+                )}
               </div>
             )}
-            {lastMoveSan && previousFen && (
-              <MoveAnalysis
-                key={`${previousFen}|${currentFen}`}
-                fenBefore={previousFen}
-                fenAfter={currentFen}
-                moveSan={lastMoveSan}
-                moverColor={previousFen.split(' ')[1] === 'b' ? 'b' : 'w'}
-              />
-            )}
-          </div>
-        </div>
-        <div className="app__movelist-column">
-          {moves.length > 0 && (
-            <div className="app__analysis-controls">
-              {!gameAnalysis.isAnalyzing && (
-                <button type="button" onClick={() => gameAnalysis.analyze(fens)}>
-                  Analyze game
-                </button>
-              )}
-              {gameAnalysis.isAnalyzing && (
-                <>
-                  <span>Analyzing... {Math.round(gameAnalysis.progress * 100)}%</span>
-                  <button type="button" onClick={gameAnalysis.cancel}>
-                    Cancel
-                  </button>
-                </>
-              )}
-            </div>
-          )}
 
-          <MoveList
-            moves={moves}
-            currentPly={currentPly}
-            onSelectPly={goToPly}
-            classifications={gameAnalysis.classifications}
-          />
+            <MoveList
+              moves={moves}
+              currentPly={currentPly}
+              onSelectPly={goToPly}
+              classifications={gameAnalysis.classifications}
+            />
+          </div>
         </div>
       </div>
     </div>
