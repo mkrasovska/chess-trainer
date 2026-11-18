@@ -3,6 +3,9 @@ type EvalBarProps = {
   scoreMate: number | null;
   sideToMove: 'w' | 'b';
   depth: number | null;
+  // Matches the board's actual rendered size so the bar is never taller/shorter
+  // than the board it sits beside; falls back to the CSS default when omitted.
+  trackHeight?: number;
 };
 
 function toWhitePerspective(scoreCp: number | null, scoreMate: number | null, sideToMove: 'w' | 'b') {
@@ -13,7 +16,7 @@ function toWhitePerspective(scoreCp: number | null, scoreMate: number | null, si
   };
 }
 
-export function EvalBar({ scoreCp, scoreMate, sideToMove, depth }: EvalBarProps) {
+export function EvalBar({ scoreCp, scoreMate, sideToMove, depth, trackHeight }: EvalBarProps) {
   const { cp, mate } = toWhitePerspective(scoreCp, scoreMate, sideToMove);
 
   let whitePercent = 50;
@@ -30,7 +33,7 @@ export function EvalBar({ scoreCp, scoreMate, sideToMove, depth }: EvalBarProps)
 
   return (
     <div className="eval-bar">
-      <div className="eval-bar__track">
+      <div className="eval-bar__track" style={trackHeight !== undefined ? { height: trackHeight } : undefined}>
         <div className="eval-bar__fill" style={{ height: `${whitePercent}%` }} />
       </div>
       <div className="eval-bar__info">

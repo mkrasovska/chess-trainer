@@ -97,7 +97,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
   };
 
   return (
-    <div className="archive-import">
+    <div className="archive-import layout-card">
       <p className="archive-import__hint">
         Build a local game database from{' '}
         <a href="https://theweekinchess.com/twic" target="_blank" rel="noreferrer">

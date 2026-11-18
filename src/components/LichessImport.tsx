@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchRecentGames, searchPlayers, type LichessGame } from '../lib/lichess';
 import { parsePgnHeaders, type PgnGame } from '../lib/pgnUtils';
 import type { PlayerMatch } from '../lib/playerMatch';
-import { GamesTable } from './GamesTable';
 
 type LichessImportProps = {
-  onSelectGame: (pgn: string) => void;
+  onGamesResolved: (games: PgnGame[], player: PlayerMatch) => void;
 };
 
 // Lichess PGN headers use the account's canonical display name, which may differ
@@ -20,11 +19,9 @@ function resolveCanonicalName(games: LichessGame[], typed: string): string {
   return typed;
 }
 
-export function LichessImport({ onSelectGame }: LichessImportProps) {
+export function LichessImport({ onGamesResolved }: LichessImportProps) {
   const [username, setUsername] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [games, setGames] = useState<PgnGame[] | null>(null);
-  const [player, setPlayer] = useState<PlayerMatch | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
@@ -46,8 +43,6 @@ export function LichessImport({ onSelectGame }: LichessImportProps) {
   const handleFetch = async (name: string) => {
     setIsLoading(true);
     setError(null);
-    setGames(null);
-    setPlayer(null);
     setSuggestions([]);
     try {
       const fetched = await fetchRecentGames(name);
@@ -55,8 +50,9 @@ export function LichessImport({ onSelectGame }: LichessImportProps) {
         setError(`No recent games found for "${name}".`);
         return;
       }
-      setGames(fetched.map((game) => ({ raw: game.pgn, headers: parsePgnHeaders(game.pgn) })));
-      setPlayer({ name: resolveCanonicalName(fetched, name), fideId: null, gameCount: fetched.length });
+      const games = fetched.map((game) => ({ raw: game.pgn, headers: parsePgnHeaders(game.pgn) }));
+      const player: PlayerMatch = { name: resolveCanonicalName(fetched, name), fideId: null, gameCount: fetched.length };
+      onGamesResolved(games, player);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not fetch games from Lichess.');
     } finally {
@@ -65,7 +61,7 @@ export function LichessImport({ onSelectGame }: LichessImportProps) {
   };
 
   return (
-    <div className="lichess-import">
+    <div className="lichess-import layout-card">
       <p className="lichess-import__hint">Search a Lichess username, then load one of their recent games.</p>
       <div className="lichess-import__search-row">
         <input
@@ -108,8 +104,6 @@ export function LichessImport({ onSelectGame }: LichessImportProps) {
 
       {isLoading && <p className="lichess-import__status">Fetching games...</p>}
       {!isLoading && error && <p className="lichess-import__status lichess-import__status--error">{error}</p>}
-
-      {games && player && <GamesTable games={games} selectedPlayer={player} onSelectGame={onSelectGame} />}
     </div>
   );
 }

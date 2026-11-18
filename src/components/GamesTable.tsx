@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { OpeningStats } from './OpeningStats';
 import { PatternFilter } from './PatternFilter';
 import { usePrepLine } from '../hooks/usePrepLine';
@@ -53,14 +53,6 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
 
   const { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset, atMax, maxPlies } = usePrepLine();
   const moveSans = useMemo(() => moves.map((m) => m.san), [moves]);
-
-  // With 0 or 1 games there's nothing to filter/compare, so skip the filters/stats/table
-  // chrome entirely and just hand the one game straight to the analysis board.
-  const onSelectGameRef = useRef(onSelectGame);
-  onSelectGameRef.current = onSelectGame;
-  useEffect(() => {
-    if (games.length === 1) onSelectGameRef.current(games[0].raw);
-  }, [games]);
 
   const rows = useMemo(
     () =>
@@ -131,105 +123,112 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     );
   }, [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans, selectedPlayer]);
 
-  if (games.length <= 1) return null;
-
+  // Each section is its own top-level "block" (a sibling in the caller's .source-grid),
+  // not nested under one shared wrapper, so the grid can lay filters/stats/table out
+  // as separate cards instead of one tall column.
   return (
-    <div>
-      <div className="games-table__filters">
-        <span className="games-table__filter-group">
-          <span className="games-table__filter-label">Color</span>
-          {COLOR_OPTIONS.map((option) => (
-            <label key={option.value}>
-              <input
-                type="checkbox"
-                checked={colorFilter.has(option.value)}
-                onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
-              />
-              {option.label} ({colorCounts[option.value]})
-            </label>
-          ))}
-        </span>
-        <span className="games-table__filter-group">
-          <span className="games-table__filter-label">Result</span>
-          {OUTCOME_OPTIONS.map((option) => (
-            <label key={option.value}>
-              <input
-                type="checkbox"
-                checked={outcomeFilter.has(option.value)}
-                onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
-              />
-              {option.label} ({outcomeCounts[option.value]})
-            </label>
-          ))}
-        </span>
-        <span className="games-table__filter-group">
-          <span className="games-table__filter-label">Year</span>
-          <input
-            type="number"
-            className="games-table__year-input"
-            placeholder="From"
-            value={yearFrom}
-            onChange={(e) => setYearFrom(e.target.value)}
-          />
-          <span>–</span>
-          <input
-            type="number"
-            className="games-table__year-input"
-            placeholder="To"
-            value={yearTo}
-            onChange={(e) => setYearTo(e.target.value)}
-          />
-        </span>
-        <span className="games-table__filters-count">
-          Showing {filteredRows.length} of {games.length} games
-        </span>
-      </div>
-
-      <PatternFilter
-        fen={fen}
-        moves={moves}
-        nextMoveOptions={nextMoveStats}
-        onMove={makeMove}
-        onPickMove={makeMoveSan}
-        onTruncate={truncateTo}
-        onUndo={undo}
-        onReset={reset}
-        atMax={atMax}
-        maxPlies={maxPlies}
-      />
-
-      <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
-
-      <div className="games-table-wrap">
-        <table className="games-table">
-          <thead>
-            <tr>
-              <th>Year</th>
-              <th>White</th>
-              <th>Elo</th>
-              <th>Black</th>
-              <th>Elo</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.map(({ game, color, year }, index) => (
-              <tr key={index} className="games-table__row" onClick={() => onSelectGame(game.raw)}>
-                <td>{year ?? '?'}</td>
-                <td className={color === 'white' ? 'games-table__player--selected' : undefined}>
-                  {game.headers.White ?? '?'}
-                </td>
-                <td>{game.headers.WhiteElo ?? '—'}</td>
-                <td className={color === 'black' ? 'games-table__player--selected' : undefined}>
-                  {game.headers.Black ?? '?'}
-                </td>
-                <td>{game.headers.BlackElo ?? '—'}</td>
-                <td>{game.headers.Result ?? '?'}</td>
-              </tr>
+    <>
+      <div className="layout-card">
+        <div className="games-table__filters">
+          <span className="games-table__filter-group">
+            <span className="games-table__filter-label">Color</span>
+            {COLOR_OPTIONS.map((option) => (
+              <label key={option.value}>
+                <input
+                  type="checkbox"
+                  checked={colorFilter.has(option.value)}
+                  onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
+                />
+                {option.label} ({colorCounts[option.value]})
+              </label>
             ))}
-          </tbody>
-        </table>
+          </span>
+          <span className="games-table__filter-group">
+            <span className="games-table__filter-label">Result</span>
+            {OUTCOME_OPTIONS.map((option) => (
+              <label key={option.value}>
+                <input
+                  type="checkbox"
+                  checked={outcomeFilter.has(option.value)}
+                  onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
+                />
+                {option.label} ({outcomeCounts[option.value]})
+              </label>
+            ))}
+          </span>
+          <span className="games-table__filter-group">
+            <span className="games-table__filter-label">Year</span>
+            <input
+              type="number"
+              className="games-table__year-input"
+              placeholder="From"
+              value={yearFrom}
+              onChange={(e) => setYearFrom(e.target.value)}
+            />
+            <span>–</span>
+            <input
+              type="number"
+              className="games-table__year-input"
+              placeholder="To"
+              value={yearTo}
+              onChange={(e) => setYearTo(e.target.value)}
+            />
+          </span>
+        </div>
+
+        <PatternFilter
+          fen={fen}
+          moves={moves}
+          nextMoveOptions={nextMoveStats}
+          onMove={makeMove}
+          onPickMove={makeMoveSan}
+          onTruncate={truncateTo}
+          onUndo={undo}
+          onReset={reset}
+          atMax={atMax}
+          maxPlies={maxPlies}
+        />
       </div>
-    </div>
+
+      <div className="layout-card">
+        <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
+      </div>
+
+      <div className="layout-card layout-card--full">
+        <p className="games-table__filters-count">
+          Showing {filteredRows.length} of {games.length} games
+        </p>
+        <div className="games-table-wrap">
+          <table className="games-table">
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>White</th>
+                <th>Elo</th>
+                <th>Black</th>
+                <th>Elo</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map(({ game, color, year }, index) => (
+                <tr key={index} className="games-table__row" onClick={() => onSelectGame(game.raw)}>
+                  <td>{year ?? '?'}</td>
+                  <td className={color === 'white' ? 'games-table__player--selected' : undefined}>
+                    {game.headers.White ?? '?'}
+                  </td>
+                  <td>{game.headers.WhiteElo ?? '—'}</td>
+                  <td className={color === 'black' ? 'games-table__player--selected' : undefined}>
+                    {game.headers.Black ?? '?'}
+                  </td>
+                  <td>{game.headers.BlackElo ?? '—'}</td>
+                  <td>{game.headers.Result ?? '?'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }

@@ -9,7 +9,7 @@ type BoardProps = {
   size?: number;
 };
 
-const DEFAULT_BOARD_SIZE = 480;
+export const DEFAULT_BOARD_SIZE = 480;
 
 export function Board({ fen, onMove, arrows, id = 'main-board', size = DEFAULT_BOARD_SIZE }: BoardProps) {
   return (
@@ -19,10 +19,8 @@ export function Board({ fen, onMove, arrows, id = 'main-board', size = DEFAULT_B
         position: fen,
         arrows,
         boardStyle: {
-          // A plain pixel width/height would overflow a narrow (e.g. phone-width)
-          // container; shrink to fit while staying square, with no JS measurement.
-          width: `min(${size}px, 100%)`,
-          aspectRatio: '1 / 1',
+          width: size,
+          height: size,
           gridTemplateRows: 'repeat(8, 1fr)',
         },
         onPieceDrop: ({ sourceSquare, targetSquare }) => {

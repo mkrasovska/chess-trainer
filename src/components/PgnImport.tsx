@@ -1,14 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { findPlayersInGames, getGamesForPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
-import { GamesTable } from './GamesTable';
 
 type PgnImportProps = {
   onLoad: (pgn: string) => void;
+  onGamesResolved: (games: PgnGame[], player: PlayerMatch) => void;
   error: string | null;
 };
 
-export function PgnImport({ onLoad, error }: PgnImportProps) {
+export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
   const [pgnText, setPgnText] = useState('');
   const [pastedGames, setPastedGames] = useState<PgnGame[] | null>(null);
   const [nameTerm, setNameTerm] = useState('');
@@ -34,14 +34,14 @@ export function PgnImport({ onLoad, error }: PgnImportProps) {
     setSelectedPlayer(null);
   };
 
-  const matchedGames = useMemo(
-    () =>
-      pastedGames && selectedPlayer ? getGamesForPlayer(pastedGames, selectedPlayer.name, selectedPlayer.fideId) : [],
-    [pastedGames, selectedPlayer],
-  );
+  const handleSelectPlayer = (player: PlayerMatch) => {
+    if (!pastedGames) return;
+    setSelectedPlayer(player);
+    onGamesResolved(getGamesForPlayer(pastedGames, player.name, player.fideId), player);
+  };
 
   return (
-    <div className="pgn-import">
+    <div className="pgn-import layout-card">
       <textarea
         className="pgn-import__textarea"
         placeholder="Paste one or more PGN games here..."
@@ -85,7 +85,7 @@ export function PgnImport({ onLoad, error }: PgnImportProps) {
                   type="button"
                   key={`${player.name}:${player.fideId ?? ''}`}
                   className="archive-import__result"
-                  onClick={() => setSelectedPlayer(player)}
+                  onClick={() => handleSelectPlayer(player)}
                 >
                   <span className="archive-import__players">{player.name}</span>
                   <span className="archive-import__meta">
@@ -98,18 +98,15 @@ export function PgnImport({ onLoad, error }: PgnImportProps) {
           )}
 
           {selectedPlayer && (
-            <>
-              <div className="archive-import__selected-player">
-                <span>
-                  {selectedPlayer.name}
-                  {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
-                </span>
-                <button type="button" onClick={() => setSelectedPlayer(null)}>
-                  ← back to players
-                </button>
-              </div>
-              <GamesTable games={matchedGames} selectedPlayer={selectedPlayer} onSelectGame={onLoad} />
-            </>
+            <div className="archive-import__selected-player">
+              <span>
+                {selectedPlayer.name}
+                {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
+              </span>
+              <button type="button" onClick={() => setSelectedPlayer(null)}>
+                ← back to players
+              </button>
+            </div>
           )}
         </div>
       )}
