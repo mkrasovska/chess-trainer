@@ -19,25 +19,21 @@ type StepperProps = {
 export function Stepper({ currentStep, step2Reachable, step3Reachable, onSelectStep }: StepperProps) {
   const reachable: Record<Step, boolean> = { 1: true, 2: step2Reachable, 3: step3Reachable };
 
+  // DaisyUI colors a step (and the connecting line before it) via step-primary,
+  // so every step up through the current one gets it, not just the current one.
   return (
-    <div className="stepper">
+    <ul className="steps steps-horizontal w-full my-4">
       {([1, 2, 3] as const).map((step) => (
-        <button
+        <li
           key={step}
-          type="button"
-          disabled={!reachable[step]}
-          className={
-            step === currentStep
-              ? 'stepper__step stepper__step--active'
-              : reachable[step]
-                ? 'stepper__step'
-                : 'stepper__step stepper__step--disabled'
-          }
-          onClick={() => onSelectStep(step)}
+          className={`step ${step <= currentStep ? 'step-primary' : ''} ${
+            reachable[step] ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'
+          }`}
+          onClick={() => reachable[step] && onSelectStep(step)}
         >
-          {step}. {STEP_LABELS[step]}
-        </button>
+          {STEP_LABELS[step]}
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

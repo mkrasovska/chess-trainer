@@ -71,14 +71,18 @@ export function AiSettings() {
 
   return (
     <div className="ai-settings">
-      <button type="button" className="ai-settings__toggle" onClick={() => setIsOpen((open) => !open)}>
+      <button type="button" className="btn btn-sm ai-settings__toggle" onClick={() => setIsOpen((open) => !open)}>
         AI settings {isOpen ? '▲' : '▼'}
       </button>
       {isOpen && (
         <div className="ai-settings__panel">
           <label>
             Provider
-            <select value={provider} onChange={(e) => handleProviderChange(e.target.value as AiProviderId)}>
+            <select
+              className="select select-bordered select-sm"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value as AiProviderId)}
+            >
               {AI_PROVIDERS.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
@@ -91,6 +95,7 @@ export function AiSettings() {
             {providerLabel} API key
             <input
               type="password"
+              className="input input-bordered input-sm"
               value={apiKey}
               onChange={(e) => {
                 setApiKeyState(e.target.value);
@@ -108,7 +113,7 @@ export function AiSettings() {
           {models && models.length > 0 && (
             <label>
               Model
-              <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+              <select className="select select-bordered select-sm" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
                 {models.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label}
@@ -119,7 +124,7 @@ export function AiSettings() {
           )}
 
           {!models && !isFetchingModels && (
-            <button type="button" onClick={() => fetchModels(provider, apiKey)} disabled={!apiKey.trim()}>
+            <button type="button" className="btn btn-sm" onClick={() => fetchModels(provider, apiKey)} disabled={!apiKey.trim()}>
               Load models
             </button>
           )}
@@ -145,7 +150,7 @@ export function AiSettings() {
             Stored only in this browser, never sent anywhere but the provider's API.
           </p>
 
-          <button type="button" onClick={handleSave} disabled={!selectedModel}>
+          <button type="button" className="btn btn-sm btn-primary" onClick={handleSave} disabled={!selectedModel}>
             Save
           </button>
         </div>

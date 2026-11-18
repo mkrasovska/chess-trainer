@@ -66,7 +66,7 @@ export function LichessImport({ onGamesResolved }: LichessImportProps) {
       <div className="lichess-import__search-row">
         <input
           type="text"
-          className="lichess-import__input"
+          className="input input-bordered input-sm lichess-import__input"
           placeholder="Lichess username..."
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -76,7 +76,7 @@ export function LichessImport({ onGamesResolved }: LichessImportProps) {
         />
         <button
           type="button"
-          className="lichess-import__button"
+          className="btn btn-primary btn-sm lichess-import__button"
           disabled={isLoading || !username.trim()}
           onClick={() => handleFetch(username.trim())}
         >
@@ -90,7 +90,7 @@ export function LichessImport({ onGamesResolved }: LichessImportProps) {
             <button
               type="button"
               key={name}
-              className="lichess-import__suggestion"
+              className="btn btn-xs btn-outline lichess-import__suggestion"
               onClick={() => {
                 setUsername(name);
                 handleFetch(name);

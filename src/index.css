@@ -1,3 +1,8 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -10,6 +15,12 @@
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  /* Ties DaisyUI's primary (buttons, tabs, steps, inputs) to the app's own
+     accent color instead of DaisyUI's default blue, so the new components
+     match the purple already used for highlights/active states. */
+  --color-primary: var(--accent);
+  --color-primary-content: #fff;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -43,6 +54,9 @@
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    /* --color-primary re-resolves to the new --accent above; only the
+       content (text-on-button) color needs flipping for contrast. */
+    --color-primary-content: #1a0a2e;
   }
 
   #social .button-icon {

@@ -136,6 +136,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
               <label key={option.value}>
                 <input
                   type="checkbox"
+                  className="checkbox checkbox-sm"
                   checked={colorFilter.has(option.value)}
                   onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
                 />
@@ -149,6 +150,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
               <label key={option.value}>
                 <input
                   type="checkbox"
+                  className="checkbox checkbox-sm"
                   checked={outcomeFilter.has(option.value)}
                   onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
                 />
@@ -160,7 +162,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
             <span className="games-table__filter-label">Year</span>
             <input
               type="number"
-              className="games-table__year-input"
+              className="input input-bordered input-xs games-table__year-input"
               placeholder="From"
               value={yearFrom}
               onChange={(e) => setYearFrom(e.target.value)}
@@ -168,7 +170,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
             <span>–</span>
             <input
               type="number"
-              className="games-table__year-input"
+              className="input input-bordered input-xs games-table__year-input"
               placeholder="To"
               value={yearTo}
               onChange={(e) => setYearTo(e.target.value)}

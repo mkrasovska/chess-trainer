@@ -43,13 +43,13 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
   return (
     <div className="pgn-import layout-card">
       <textarea
-        className="pgn-import__textarea"
+        className="textarea textarea-bordered pgn-import__textarea"
         placeholder="Paste one or more PGN games here..."
         value={pgnText}
         onChange={(e) => setPgnText(e.target.value)}
         rows={6}
       />
-      <button type="button" className="pgn-import__button" onClick={handleLoad}>
+      <button type="button" className="btn btn-primary btn-sm pgn-import__button" onClick={handleLoad}>
         Load
       </button>
       {error && <p className="pgn-import__error">{error}</p>}
@@ -61,7 +61,7 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
           <div className="archive-import__search-row">
             <input
               type="text"
-              className="archive-import__search"
+              className="input input-bordered input-sm archive-import__search"
               placeholder="Player name..."
               value={nameTerm}
               onChange={(e) => setNameTerm(e.target.value)}
@@ -69,7 +69,7 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
                 if (e.key === 'Enter') handleFindPlayers();
               }}
             />
-            <button type="button" disabled={!nameTerm.trim()} onClick={handleFindPlayers}>
+            <button type="button" className="btn btn-sm" disabled={!nameTerm.trim()} onClick={handleFindPlayers}>
               Find players
             </button>
           </div>
@@ -103,7 +103,7 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
                 {selectedPlayer.name}
                 {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
               </span>
-              <button type="button" onClick={() => setSelectedPlayer(null)}>
+              <button type="button" className="btn btn-xs btn-ghost" onClick={() => setSelectedPlayer(null)}>
                 ← back to players
               </button>
             </div>

@@ -43,7 +43,7 @@ export function PatternFilter({
                 <button
                   key={i}
                   type="button"
-                  className="pattern-filter__picked-move"
+                  className="btn btn-xs btn-outline pattern-filter__picked-move"
                   onClick={() => onTruncate(i + 1)}
                   title="Go back to right after this move"
                 >
@@ -54,10 +54,10 @@ export function PatternFilter({
             )}
           </div>
           <div className="app__nav">
-            <button type="button" onClick={onUndo} disabled={moves.length === 0}>
+            <button type="button" className="btn btn-sm flex-1" onClick={onUndo} disabled={moves.length === 0}>
               Undo
             </button>
-            <button type="button" onClick={onReset} disabled={moves.length === 0}>
+            <button type="button" className="btn btn-sm flex-1" onClick={onReset} disabled={moves.length === 0}>
               Reset
             </button>
           </div>
@@ -73,7 +73,7 @@ export function PatternFilter({
                   <button
                     key={option.name}
                     type="button"
-                    className="pattern-filter__option"
+                    className="btn btn-xs btn-soft btn-primary pattern-filter__option"
                     onClick={() => onPickMove(option.name)}
                   >
                     {option.name} ({option.count})

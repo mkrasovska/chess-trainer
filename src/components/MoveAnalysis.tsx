@@ -42,7 +42,7 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
 
   return (
     <div className="move-analysis">
-      <button type="button" onClick={handleAnalyze} disabled={isBusy}>
+      <button type="button" className="btn btn-sm btn-primary" onClick={handleAnalyze} disabled={isBusy}>
         {isBusy ? (isEvaluating ? 'Evaluating...' : `Asking ${providerLabel}...`) : `Analyze ${moveSan}`}
       </button>
       <AiResultPanel result={result} error={error} onClose={clear} />

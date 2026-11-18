@@ -182,24 +182,27 @@ function App() {
       />
 
       <div style={{ display: currentStep === 1 ? undefined : 'none' }}>
-        <div className="app__tabs">
+        <div role="tablist" className="tabs tabs-boxed app__tabs">
           <button
             type="button"
-            className={importTab === 'paste' ? 'app__tab app__tab--active' : 'app__tab'}
+            role="tab"
+            className={importTab === 'paste' ? 'tab tab-active' : 'tab'}
             onClick={() => handleTabChange('paste')}
           >
             Paste PGN
           </button>
           <button
             type="button"
-            className={importTab === 'archive' ? 'app__tab app__tab--active' : 'app__tab'}
+            role="tab"
+            className={importTab === 'archive' ? 'tab tab-active' : 'tab'}
             onClick={() => handleTabChange('archive')}
           >
             Download PGN
           </button>
           <button
             type="button"
-            className={importTab === 'lichess' ? 'app__tab app__tab--active' : 'app__tab'}
+            role="tab"
+            className={importTab === 'lichess' ? 'tab tab-active' : 'tab'}
             onClick={() => handleTabChange('lichess')}
           >
             Lichess
@@ -250,17 +253,17 @@ function App() {
               )}
               <Board fen={currentFen} onMove={makeMove} arrows={arrows} size={boardSize} />
               <div className="app__nav">
-                <button type="button" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
-                <button type="button" onClick={goPrev}>{'<'}</button>
-                <button type="button" onClick={goNext} disabled={isBranching}>{'>'}</button>
-                <button type="button" onClick={goLast} disabled={isBranching}>{'>|'}</button>
+                <button type="button" className="btn btn-sm flex-1" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
+                <button type="button" className="btn btn-sm flex-1" onClick={goPrev}>{'<'}</button>
+                <button type="button" className="btn btn-sm flex-1" onClick={goNext} disabled={isBranching}>{'>'}</button>
+                <button type="button" className="btn btn-sm flex-1" onClick={goLast} disabled={isBranching}>{'>|'}</button>
               </div>
               {isBranching && (
                 <div className="app__branch-banner">
                   <span>
                     Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
                   </span>
-                  <button type="button" onClick={returnToMainline}>
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={returnToMainline}>
                     ← back to game
                   </button>
                 </div>
@@ -280,14 +283,14 @@ function App() {
             {moves.length > 0 && (
               <div className="app__analysis-controls">
                 {!gameAnalysis.isAnalyzing && (
-                  <button type="button" onClick={() => gameAnalysis.analyze(fens)}>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => gameAnalysis.analyze(fens)}>
                     Analyze game
                   </button>
                 )}
                 {gameAnalysis.isAnalyzing && (
                   <>
                     <span>Analyzing... {Math.round(gameAnalysis.progress * 100)}%</span>
-                    <button type="button" onClick={gameAnalysis.cancel}>
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={gameAnalysis.cancel}>
                       Cancel
                     </button>
                   </>

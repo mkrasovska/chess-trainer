@@ -112,7 +112,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
       </p>
 
       <div className="archive-import__file-row">
-        <label className="archive-import__file-button">
+        <label className="btn btn-sm archive-import__file-button">
           Choose file
           <input
             type="file"
@@ -141,7 +141,12 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
             <div className="archive-import__library-row" key={entry.id}>
               <span className="archive-import__library-name">{entry.name}</span>
               <span className="archive-import__library-size">{formatSize(entry.size)}</span>
-              <button type="button" onClick={() => handleRemove(entry.id)} aria-label={`Remove ${entry.name}`}>
+              <button
+                type="button"
+                className="btn btn-xs btn-circle btn-ghost"
+                onClick={() => handleRemove(entry.id)}
+                aria-label={`Remove ${entry.name}`}
+              >
                 ×
               </button>
             </div>
@@ -153,7 +158,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
         <div className="archive-import__search-row">
           <input
             type="text"
-            className="archive-import__search"
+            className="input input-bordered input-sm archive-import__search"
             placeholder="Player name..."
             value={nameTerm}
             disabled={isSearchingPlayers}
@@ -162,7 +167,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
               if (e.key === 'Enter') handleFindPlayers();
             }}
           />
-          <button type="button" disabled={isSearchingPlayers || !nameTerm.trim()} onClick={handleFindPlayers}>
+          <button type="button" className="btn btn-sm" disabled={isSearchingPlayers || !nameTerm.trim()} onClick={handleFindPlayers}>
             Find players
           </button>
         </div>
@@ -196,7 +201,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
             {selectedPlayer.name}
             {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
           </span>
-          <button type="button" onClick={onBackToPlayers}>
+          <button type="button" className="btn btn-xs btn-ghost" onClick={onBackToPlayers}>
             ← back to players
           </button>
         </div>
