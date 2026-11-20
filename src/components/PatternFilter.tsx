@@ -31,7 +31,7 @@ export function PatternFilter({
 
   return (
     <div className="pattern-filter">
-      <span className="games-table__filter-label">Filter by game patterns</span>
+      <h2>Filter by game patterns</h2>
       <div className="pattern-filter__row">
         <div className="pattern-filter__board">
           <Board fen={fen} onMove={onMove} id="pattern-filter-board" size={280} />

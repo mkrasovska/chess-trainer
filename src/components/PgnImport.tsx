@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { findPlayersInGames, findSoleRecurringPlayer, getGamesForPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
+import { findPlayersInGames, findSoleRecurringPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
 import { formatSize, MAX_PASTE_BYTES } from '../lib/sourceLimits';
 
 type PgnImportProps = {
   onLoad: (pgn: string) => void;
-  onGamesResolved: (games: PgnGame[], player: PlayerMatch) => void;
+  // player is null when the pasted text covers more than one distinct player (or
+  // none yet) -- the games are still browsable, just without filters/stats until a
+  // player is actually picked (see handleSelectPlayer).
+  onGamesResolved: (games: PgnGame[], player: PlayerMatch | null) => void;
   // Clears whatever an earlier paste resolved -- a fresh Load always calls this
   // first, so a new paste that DOESN'T auto-resolve to a player (unlike the one
   // before it) doesn't leave the previous paste's table/filters stuck on screen.
@@ -42,15 +45,13 @@ export function PgnImport({ onLoad, onGamesResolved, onBackToPlayers, error }: P
     }
     setPastedGames(games);
 
-    // If exactly one player identity appears in every pasted game (as opposed to a
-    // tournament dump with many distinct players), skip straight to it instead of
-    // requiring a manual name search -- same as Lichess, where the player is already
-    // known from the username typed in.
+    // Expose the whole pasted pool immediately -- it's browsable as soon as it's
+    // loaded, regardless of whether a player is known yet. If exactly one player
+    // identity appears in every game (not a tournament dump with many distinct
+    // players), resolve it right away too, same as Lichess.
     const sole = findSoleRecurringPlayer(games);
-    if (sole) {
-      setSelectedPlayer(sole);
-      onGamesResolved(getGamesForPlayer(games, sole.name, sole.fideId), sole);
-    }
+    setSelectedPlayer(sole);
+    onGamesResolved(games, sole);
   };
 
   const handleFindPlayers = () => {
@@ -62,7 +63,7 @@ export function PgnImport({ onLoad, onGamesResolved, onBackToPlayers, error }: P
   const handleSelectPlayer = (player: PlayerMatch) => {
     if (!pastedGames) return;
     setSelectedPlayer(player);
-    onGamesResolved(getGamesForPlayer(pastedGames, player.name, player.fideId), player);
+    onGamesResolved(pastedGames, player);
   };
 
   return (
@@ -129,7 +130,14 @@ export function PgnImport({ onLoad, onGamesResolved, onBackToPlayers, error }: P
                 {selectedPlayer.name}
                 {selectedPlayer.fideId ? ` (FIDE ${selectedPlayer.fideId})` : ''}
               </span>
-              <button type="button" className="btn btn-xs btn-ghost" onClick={() => setSelectedPlayer(null)}>
+              <button
+                type="button"
+                className="btn btn-xs btn-ghost"
+                onClick={() => {
+                  setSelectedPlayer(null);
+                  onBackToPlayers();
+                }}
+              >
                 ← back to players
               </button>
             </div>

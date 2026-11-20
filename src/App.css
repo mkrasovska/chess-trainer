@@ -619,8 +619,22 @@
 }
 
 .games-table__filters-count {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 18px;
   color: var(--text, #6b6375);
-  margin-left: auto;
+  margin: 0 auto 8px 0;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+.games-table__loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text, #6b6375);
 }
 
 .opening-stats-section {

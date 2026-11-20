@@ -12,8 +12,7 @@ import { useChessGame } from './hooks/useChessGame';
 import { useGameAnalysis } from './hooks/useGameAnalysis';
 import { useStockfish } from './hooks/useStockfish';
 import { useViewportWidth } from './hooks/useViewportWidth';
-import { loadLibraryGames } from './lib/gameLibrary';
-import { getGamesForPlayer, type PlayerMatch } from './lib/playerMatch';
+import type { PlayerMatch } from './lib/playerMatch';
 import type { PgnGame } from './lib/pgnUtils';
 import './App.css';
 
@@ -71,20 +70,20 @@ function App() {
     setCurrentStep(1);
     setSelectedPlayer(null);
     setPlayerGames([]);
-    setGamesStatus(null);
   };
 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
   const [playerGames, setPlayerGames] = useState<PgnGame[]>([]);
-  const [isLoadingGames, setIsLoadingGames] = useState(false);
-  const [gamesStatus, setGamesStatus] = useState<string | null>(null);
 
-  // What every source funnels into once it has resolved a player + their games:
-  // one game means there's nothing to filter/compare, so jump straight to it; more
-  // than one stays on step 1, where the games table now renders right below the
-  // source pickers (the step-2 advance is handled below, triggered uniformly by a
-  // game actually loading, from any path).
-  const applyResolvedGames = (games: PgnGame[], player: PlayerMatch) => {
+  // What every source funnels into once it has resolved a pool of games -- a player
+  // identity is optional: the table is browsable (and clickable) the moment there's
+  // more than one game, regardless of whether a player is known yet; one is only
+  // added, by onGamesLoaded's auto-detect or a manual pick, as a way to enable the Color/Result
+  // filters and the pattern/stats cards, which need a perspective to compute from.
+  // A single game means there's nothing to browse, so jump straight to it instead
+  // (the step-2 advance is handled below, triggered uniformly by a game actually
+  // loading, from any path).
+  const applyResolvedGames = (games: PgnGame[], player: PlayerMatch | null) => {
     setSelectedPlayer(player);
     setPlayerGames(games);
     if (games.length === 1) {
@@ -146,26 +145,20 @@ function App() {
   const viewportWidth = useViewportWidth();
   const boardSize = Math.max(200, Math.min(DEFAULT_BOARD_SIZE, viewportWidth - BOARD_ROW_CHROME));
 
+  // Only clears which player is selected -- the games pool itself stays put, so
+  // "back to players" means "show me a different perspective on what's already
+  // loaded," not "forget everything and start over" (handleTabChange does that).
   const handleBackToPlayers = () => {
     setSelectedPlayer(null);
-    setPlayerGames([]);
-    setGamesStatus(null);
   };
 
-  const handleSelectPlayer = async (player: PlayerMatch) => {
-    setIsLoadingGames(true);
-    setGamesStatus(null);
-    try {
-      const games = await loadLibraryGames();
-      const matched = getGamesForPlayer(games, player.name, player.fideId);
-      setGamesStatus(`Found ${matched.length} game${matched.length === 1 ? '' : 's'}.`);
-      applyResolvedGames(matched, player);
-    } catch {
-      setGamesStatus('Could not load games for this player.');
-    } finally {
-      setIsLoadingGames(false);
-    }
+  // The pool is already loaded (via onGamesLoaded), so picking a player is just
+  // choosing a perspective on it -- no re-fetching or filtering needed.
+  const handleSelectPlayer = (player: PlayerMatch) => {
+    setSelectedPlayer(player);
   };
+
+  const handleGamesLoaded = (games: PgnGame[]) => applyResolvedGames(games, null);
 
   const step2Reachable = isGameLoaded;
 
@@ -217,19 +210,16 @@ function App() {
           />
         )}
         {importTab === 'archive' && (
-          <>
-            <GameArchiveImport
-              selectedPlayer={selectedPlayer}
-              onSelectPlayer={handleSelectPlayer}
-              onBackToPlayers={handleBackToPlayers}
-            />
-            {isLoadingGames && <p className="archive-import__status">Loading games...</p>}
-            {!isLoadingGames && gamesStatus && <p className="archive-import__status">{gamesStatus}</p>}
-          </>
+          <GameArchiveImport
+            selectedPlayer={selectedPlayer}
+            onGamesLoaded={handleGamesLoaded}
+            onSelectPlayer={handleSelectPlayer}
+            onBackToPlayers={handleBackToPlayers}
+          />
         )}
         {importTab === 'lichess' && <LichessImport onGamesResolved={applyResolvedGames} />}
 
-        {selectedPlayer && playerGames.length > 1 && (
+        {playerGames.length > 1 && (
           <div className="source-grid">
             <GamesTable games={playerGames} selectedPlayer={selectedPlayer} onSelectGame={handleLoadPgn} />
           </div>

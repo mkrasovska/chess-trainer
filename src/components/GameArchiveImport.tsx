@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react';
 import { extractPgnFromFile } from '../lib/archiveFile';
 import { addArchiveToLibrary, listLibrary, loadLibraryGames, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
 import { findPlayersInGames, findSoleRecurringPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
+import type { PgnGame } from '../lib/pgnUtils';
 import { formatSize, MAX_FILE_BYTES } from '../lib/sourceLimits';
 
 type GameArchiveImportProps = {
   selectedPlayer: PlayerMatch | null;
+  // Exposes the library's whole game pool so it can be browsed before (or without)
+  // a player being selected -- selecting one only adds filters/stats on top of it.
+  onGamesLoaded: (games: PgnGame[]) => void;
   onSelectPlayer: (player: PlayerMatch) => void;
   onBackToPlayers: () => void;
 };
 
-export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlayers }: GameArchiveImportProps) {
+export function GameArchiveImport({ selectedPlayer, onGamesLoaded, onSelectPlayer, onBackToPlayers }: GameArchiveImportProps) {
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [addStatus, setAddStatus] = useState<string | null>(null);
@@ -22,13 +26,15 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
 
   const refreshLibrary = () => listLibrary().then(setLibrary);
 
-  // If exactly one player identity appears in every game in the library (a personal
-  // archive, as opposed to a tournament-wide one with many distinct players), skip
-  // straight to it instead of requiring a manual name search -- same as Lichess,
-  // where the player is already known from the username typed in.
-  const tryAutoSelect = async () => {
+  // Exposes the library's current game pool upward regardless of player selection,
+  // and -- if exactly one player identity appears in every game (a personal archive,
+  // as opposed to a tournament-wide one with many distinct players) -- auto-selects
+  // it too, skipping the manual name search below. Same immediacy Lichess already
+  // had, where the player is already known from the username typed in.
+  const syncLibraryGames = async () => {
     try {
       const games = await loadLibraryGames();
+      onGamesLoaded(games);
       const sole = findSoleRecurringPlayer(games);
       if (sole) onSelectPlayer(sole);
     } catch {
@@ -38,9 +44,9 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
 
   useEffect(() => {
     refreshLibrary();
-    tryAutoSelect();
-    // Mount-only: re-running on every onSelectPlayer identity change would refire
-    // this for no reason, since the library itself hasn't changed.
+    syncLibraryGames();
+    // Mount-only: re-running on every onGamesLoaded/onSelectPlayer identity change
+    // would refire this for no reason, since the library itself hasn't changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -81,7 +87,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
       }
       await refreshLibrary();
       clearPlayerSearch();
-      await tryAutoSelect();
+      await syncLibraryGames();
     } catch {
       setAddStatus('Could not read this file. Expected a .zip or .pgn file.');
     } finally {
@@ -93,7 +99,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
     await removeFromLibrary(id);
     await refreshLibrary();
     clearPlayerSearch();
-    await tryAutoSelect();
+    await syncLibraryGames();
   };
 
   const handleFindPlayers = async () => {
