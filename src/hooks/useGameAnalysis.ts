@@ -2,7 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { createAnalysisEngine, type PositionEval } from '../lib/analysisEngine';
 import { classifyGame, type MoveQuality } from '../lib/moveQuality';
 
-const ANALYSIS_DEPTH = 20;
+// Shallower than the single-move analysis depth (24) -- this scans every ply in a
+// loop, so it trades precision for speed; the blunder/mistake/inaccuracy thresholds
+// are coarse enough (50/130/300cp) that this rarely flips a classification.
+const ANALYSIS_DEPTH = 16;
 
 export function useGameAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);

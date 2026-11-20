@@ -1,12 +1,22 @@
+export type CandidateMove = {
+  moveUci: string;
+  scoreCp: number | null;
+  scoreMate: number | null;
+  pv: string[];
+};
+
 export type PositionEval = {
   scoreCp: number | null;
   scoreMate: number | null;
   bestMoveUci: string | null;
   pv: string[];
+  // All requested MultiPV lines, ranked best-first; candidates[0] is the same line as
+  // the fields above. Just one entry unless `evaluate` was called with multiPv > 1.
+  candidates: CandidateMove[];
 };
 
 export type AnalysisEngine = {
-  evaluate: (fen: string, depth: number) => Promise<PositionEval>;
+  evaluate: (fen: string, depth: number, multiPv?: number) => Promise<PositionEval>;
   terminate: () => void;
 };
 
@@ -19,9 +29,9 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
   return new Promise((resolveReady) => {
     const worker = new Worker(`${import.meta.env.BASE_URL}stockfish/stockfish-19-lite-single.js`);
     let pending: { resolve: (result: PositionEval) => void } | null = null;
-    let lastScoreCp: number | null = null;
-    let lastScoreMate: number | null = null;
-    let lastPv: string[] = [];
+    // Keyed by MultiPV rank (1-based, per UCI). Re-emitted at increasing depth as the
+    // engine searches deeper, so later lines for the same rank overwrite earlier ones.
+    let byRank = new Map<number, CandidateMove>();
 
     worker.onmessage = (e: MessageEvent<string>) => {
       const message = e.data;
@@ -29,12 +39,11 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
         worker.postMessage('isready');
       } else if (message === 'readyok') {
         resolveReady({
-          evaluate: (fen, depth) =>
+          evaluate: (fen, depth, multiPv = 1) =>
             new Promise((resolve) => {
-              lastScoreCp = null;
-              lastScoreMate = null;
-              lastPv = [];
+              byRank = new Map();
               pending = { resolve };
+              worker.postMessage(`setoption name MultiPV value ${multiPv}`);
               worker.postMessage(`position fen ${fen}`);
               worker.postMessage(`go depth ${depth}`);
             }),
@@ -44,13 +53,28 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
         const cpMatch = message.match(/score cp (-?\d+)/);
         const mateMatch = message.match(/score mate (-?\d+)/);
         const pvMatch = message.match(/ pv (.+)/);
-        if (cpMatch) lastScoreCp = Number(cpMatch[1]);
-        if (mateMatch) lastScoreMate = Number(mateMatch[1]);
-        if (pvMatch) lastPv = pvMatch[1].trim().split(' ');
+        const multipvMatch = message.match(/multipv (\d+)/);
+        if (!pvMatch) return;
+        const rank = multipvMatch ? Number(multipvMatch[1]) : 1;
+        const pv = pvMatch[1].trim().split(' ');
+        byRank.set(rank, {
+          moveUci: pv[0],
+          scoreCp: cpMatch ? Number(cpMatch[1]) : null,
+          scoreMate: mateMatch ? Number(mateMatch[1]) : null,
+          pv,
+        });
       } else if (message.startsWith('bestmove')) {
         const parts = message.split(' ');
         const bestMoveUci = parts[1] && parts[1] !== '(none)' ? parts[1] : null;
-        pending?.resolve({ scoreCp: lastScoreCp, scoreMate: lastScoreMate, bestMoveUci, pv: lastPv });
+        const candidates = [...byRank.keys()].sort((a, b) => a - b).map((rank) => byRank.get(rank)!);
+        const top = candidates[0];
+        pending?.resolve({
+          scoreCp: top?.scoreCp ?? null,
+          scoreMate: top?.scoreMate ?? null,
+          bestMoveUci,
+          pv: top?.pv ?? [],
+          candidates,
+        });
         pending = null;
       }
     };

@@ -20,15 +20,20 @@ function toComparable({ scoreCp, scoreMate }: PositionEval): number {
 }
 
 /**
- * Classifies the move played between positionEvals[i] and positionEvals[i+1] for ply i.
- * positionEvals[i] is the best achievable score for the side about to move (mover's
- * perspective already). positionEvals[i+1] is evaluated from the opponent's perspective
+ * The centipawn swing (always >= 0) between before/after, from the mover's own
+ * perspective. `before` is the best achievable score for the side about to move
+ * (mover's perspective already). `after` is evaluated from the opponent's perspective
  * (since the turn flipped), so it's negated to compare on the same scale.
  */
-export function classifyMove(before: PositionEval, after: PositionEval): MoveQuality {
+export function computeSwing(before: PositionEval, after: PositionEval): number {
   const bestForMover = toComparable(before);
   const resultForMover = -toComparable(after);
-  const swing = Math.max(0, bestForMover - resultForMover);
+  return Math.max(0, bestForMover - resultForMover);
+}
+
+/** Classifies the move played between positionEvals[i] and positionEvals[i+1] for ply i. */
+export function classifyMove(before: PositionEval, after: PositionEval): MoveQuality {
+  const swing = computeSwing(before, after);
 
   if (swing >= 300) return 'blunder';
   if (swing >= 130) return 'mistake';

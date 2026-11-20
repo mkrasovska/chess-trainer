@@ -671,3 +671,67 @@
   margin-top: 10px;
 }
 
+.move-analysis__played {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-radius: 4px;
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  border: 1px solid var(--accent-border, rgba(170, 59, 255, 0.5));
+}
+
+.move-analysis__candidates-label {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-h, #08060d);
+  margin: 8px 0 0;
+}
+
+.move-analysis__candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.move-analysis__candidates li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.move-analysis__candidate-line {
+  font-family: var(--mono, monospace);
+  font-size: 13px;
+  color: var(--text, #6b6375);
+}
+
+.move-analysis__candidate--played {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  border: 1px solid var(--accent-border, rgba(170, 59, 255, 0.5));
+}
+
+.move-analysis__candidate-san {
+  font-family: var(--mono, monospace);
+  font-weight: 600;
+}
+
+.move-analysis__candidate-score {
+  color: var(--text, #6b6375);
+}
+
+.move-analysis__ai-button {
+  margin-top: 8px;
+}
+
