@@ -12,7 +12,13 @@ import {
 } from '../lib/ai/provider';
 import type { AiModel } from '../lib/ai/types';
 
-export function AiSettings() {
+type AiSettingsProps = {
+  // Called after Save -- lets a caller showing an AI-gated control (e.g. the "AI
+  // analysis" button) know its enabled/disabled state may need recomputing.
+  onSaved?: () => void;
+};
+
+export function AiSettings({ onSaved }: AiSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [provider, setProviderState] = useState<AiProviderId>(getAiProvider());
   const [apiKey, setApiKeyState] = useState(() => getApiKey(provider));
@@ -59,6 +65,7 @@ export function AiSettings() {
     setApiKey(provider, apiKey.trim());
     setModel(provider, selectedModel);
     setIsOpen(false);
+    onSaved?.();
   };
 
   useEffect(() => {

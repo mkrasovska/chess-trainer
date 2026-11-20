@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AiSettings } from './components/AiSettings';
 import { Board, DEFAULT_BOARD_SIZE } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
@@ -170,8 +169,10 @@ function App() {
   return (
     <div className="app">
       <div className="app__header">
-        <h1>Chess Trainer</h1>
-        <AiSettings />
+        <div className="app__brand">
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app__logo" />
+          <h1 className="sr-only">ChessPoint</h1>
+        </div>
       </div>
 
       <Stepper

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { findPlayersInGames, getGamesForPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
+import { formatSize, MAX_PASTE_BYTES } from '../lib/sourceLimits';
 
 type PgnImportProps = {
   onLoad: (pgn: string) => void;
@@ -14,8 +15,17 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
   const [nameTerm, setNameTerm] = useState('');
   const [players, setPlayers] = useState<PlayerMatch[] | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
+  const [pasteError, setPasteError] = useState<string | null>(null);
 
   const handleLoad = () => {
+    setPasteError(null);
+    const byteSize = new Blob([pgnText]).size;
+    if (byteSize > MAX_PASTE_BYTES) {
+      setPasteError(
+        `That's ${formatSize(byteSize)} of pasted text — over the ${formatSize(MAX_PASTE_BYTES)} limit. Paste fewer games, or use the file import instead.`,
+      );
+      return;
+    }
     const games = loadPgnGames(pgnText);
     setPlayers(null);
     setSelectedPlayer(null);
@@ -53,6 +63,7 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
         Load
       </button>
       {error && <p className="pgn-import__error">{error}</p>}
+      {pasteError && <p className="pgn-import__error">{pasteError}</p>}
 
       {pastedGames && (
         <div className="pgn-import__multi">

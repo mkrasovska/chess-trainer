@@ -1,7 +1,5 @@
 import { strFromU8, unzipSync } from 'fflate';
 
-export const IN_MEMORY_LIMIT_BYTES = 64 * 1024 * 1024;
-
 export async function extractPgnFromFile(file: File): Promise<string> {
   const buffer = new Uint8Array(await file.arrayBuffer());
 

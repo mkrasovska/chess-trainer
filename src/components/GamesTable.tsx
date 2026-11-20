@@ -51,7 +51,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
 
-  const { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset, atMax, maxPlies } = usePrepLine();
+  const { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset } = usePrepLine();
   const moveSans = useMemo(() => moves.map((m) => m.san), [moves]);
 
   const rows = useMemo(
@@ -128,7 +128,7 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
   // as separate cards instead of one tall column.
   return (
     <>
-      <div className="layout-card">
+      <div className={`layout-card${outcomeFilter.size > 0 ? ' layout-card--full' : ''}`}>
         <div className="games-table__filters">
           <span className="games-table__filter-group">
             <span className="games-table__filter-label">Color</span>
@@ -187,14 +187,14 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
           onTruncate={truncateTo}
           onUndo={undo}
           onReset={reset}
-          atMax={atMax}
-          maxPlies={maxPlies}
         />
       </div>
 
-      <div className="layout-card">
-        <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
-      </div>
+      {outcomeFilter.size === 0 && (
+        <div className="layout-card">
+          <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
+        </div>
+      )}
 
       <div className="layout-card layout-card--full">
         <p className="games-table__filters-count">

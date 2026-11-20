@@ -12,6 +12,21 @@
   gap: 16px;
 }
 
+.app__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app__logo {
+  height: 56px;
+  width: auto;
+
+  @media (max-width: 1024px) {
+    height: 40px;
+  }
+}
+
 /*
  * Shared "block" layout: a 2-up grid for the download&search / filters / stats /
  * results blocks, collapsing to 1-up on narrow viewports; .layout-card gives every
@@ -26,7 +41,10 @@
   margin-bottom: 16px;
 }
 
-@media (max-width: 720px) {
+/* 1100px, not 720px -- at a half-width column, a narrower-than-1100px window leaves
+   each .layout-card too little room for the Result filter group's 3 checkboxes (plus
+   counts) to stay on one line, however that group's own CSS is tuned. */
+@media (max-width: 1100px) {
   .source-grid {
     grid-template-columns: 1fr;
   }
@@ -140,7 +158,9 @@
 
 .app__movelist-column {
   flex: 1;
-  min-width: 260px;
+  /* min() instead of a plain 260px -- a hard floor isn't capped by max-width, so on a
+     viewport narrower than 260px (plus padding) it would force horizontal overflow. */
+  min-width: min(260px, 100%);
   text-align: left;
 }
 
@@ -435,9 +455,16 @@
   width: 280px;
   max-width: 100%;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .pattern-filter__side {
+  /* flex-basis 0 (not the default auto) so the row's wrap check sizes this against
+     the space actually left over, not its own max-content width -- otherwise a long
+     picked-moves/options list could make this look too wide to fit and push the
+     whole side below the board, even though it would happily wrap its own buttons
+     (see .pattern-filter__picked/.pattern-filter__options) to stay beside it instead. */
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -445,10 +472,67 @@
   min-width: 0;
 }
 
+/* Stacked (not side by side) so each button always spans the section's full width --
+   two flex: 1 siblings sharing a row re-split unevenly with every small width change
+   (e.g. from the side column's own width settling as moves are picked), which made
+   them visibly resize; a full-width column has nothing to re-split. */
+.pattern-filter__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* Styled from scratch rather than DaisyUI's .btn/.btn-sm, same reason as
+   .pattern-filter__picked-move -- those size via custom properties consumed on
+   .btn itself, which resists a plain override here. */
+.pattern-filter__nav-btn {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+  /* --bg (the page background), not --code-bg (this card's own background) -- so the
+     button reads as a distinct control instead of blending into the card behind it. */
+  background: var(--bg, #fff);
+  color: var(--text-h, #08060d);
+  cursor: pointer;
+}
+
+.pattern-filter__nav-btn:hover:not(:disabled) {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  border-color: var(--accent-border, rgba(170, 59, 255, 0.5));
+}
+
+.pattern-filter__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Below this, the fixed-width board (280px, flex-shrink: 0 above) leaves too little
+   room beside it for the picked-moves list and nav buttons not to overflow -- stack
+   the board above the side panel instead of squeezing them into one row. */
+@media (max-width: 560px) {
+  .pattern-filter__row {
+    flex-direction: column;
+    /* row's align-items: flex-start (above) only sizes the side panel to its own
+       content width when stacked -- stretch it to the full section width instead,
+       so width: 100% on the nav buttons means the section's width, not a narrow box. */
+    align-items: stretch;
+  }
+
+  .pattern-filter__nav-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
 .pattern-filter__picked {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 6px;
+  align-items: center;
+  gap: 3px;
   font-family: var(--mono, monospace);
   font-size: 13px;
 }
@@ -457,8 +541,24 @@
   color: var(--text, #6b6375);
 }
 
+/* Styled from scratch rather than DaisyUI's .btn/.btn-xs -- those size themselves
+   through CSS custom properties consumed on .btn itself, which made them resist a
+   plain size override here. */
 .pattern-filter__picked-move {
   font-family: var(--mono, monospace);
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 5px;
+  border: 1px solid var(--border, #e5e4e7);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-h, #08060d);
+  cursor: pointer;
+}
+
+.pattern-filter__picked-move:hover {
+  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
+  border-color: var(--accent-border, rgba(170, 59, 255, 0.5));
 }
 
 .pattern-filter__options {
@@ -473,29 +573,34 @@
   color: var(--text, #6b6375);
 }
 
+/* Stacked (one group per row) rather than flowed inline -- sharing a row with Color
+   and Year left Result too little width for its own checkboxes, forcing them to wrap
+   internally; a row of its own gives each group the full card width to lay out in. */
 .games-table__filters {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 12px;
   font-size: 13px;
-  flex-wrap: wrap;
 }
 
 .games-table__filter-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 6px 8px;
   border: 1px solid var(--border, #e5e4e7);
   border-radius: 6px;
   background: var(--code-bg, #f4f3ec);
+  max-width: 100%;
 }
 
 .games-table__filter-group label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -581,6 +686,17 @@
 .games-table td {
   padding: 6px 12px;
   border-bottom: 1px solid var(--border, #e5e4e7);
+}
+
+@media (max-width: 560px) {
+  .games-table {
+    font-size: 12px;
+  }
+
+  .games-table thead th,
+  .games-table td {
+    padding: 5px 8px;
+  }
 }
 
 .games-table__row {
@@ -731,7 +847,10 @@
   color: var(--text, #6b6375);
 }
 
-.move-analysis__ai-button {
+.move-analysis__ai-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 8px;
 }
 

@@ -1,28 +1,24 @@
 import { useCallback, useState } from 'react';
 import { Chess, type Move } from 'chess.js';
 
-export const PREP_MAX_PLIES = 10; // 5 full moves
-
 export function usePrepLine() {
   const [game] = useState(() => new Chess());
   const [moves, setMoves] = useState<Move[]>([]);
 
   const fen = game.fen();
-  const atMax = moves.length >= PREP_MAX_PLIES;
 
-  const applyMove = useCallback(
-    (mutate: () => void) => {
-      if (moves.length >= PREP_MAX_PLIES) return false;
-      try {
-        mutate();
-        setMoves(game.history({ verbose: true }));
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    [game, moves.length],
-  );
+  // No ply cap -- chess.js itself has none, and a move that runs the game out
+  // (checkmate/stalemate) just throws here and is swallowed below, same as any
+  // other illegal move.
+  const applyMove = useCallback((mutate: () => void) => {
+    try {
+      mutate();
+      setMoves(game.history({ verbose: true }));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [game]);
 
   const makeMove = useCallback(
     (from: string, to: string, promotion = 'q') => applyMove(() => game.move({ from, to, promotion })),
@@ -47,5 +43,5 @@ export function usePrepLine() {
     setMoves([]);
   }, [game]);
 
-  return { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset, atMax, maxPlies: PREP_MAX_PLIES };
+  return { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset };
 }

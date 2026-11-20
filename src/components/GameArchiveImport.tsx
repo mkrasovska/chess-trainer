@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react';
-import { extractPgnFromFile, IN_MEMORY_LIMIT_BYTES } from '../lib/archiveFile';
+import { extractPgnFromFile } from '../lib/archiveFile';
 import { addArchiveToLibrary, listLibrary, loadLibraryGames, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
 import { findPlayersInGames, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
+import { formatSize, MAX_FILE_BYTES } from '../lib/sourceLimits';
 
 type GameArchiveImportProps = {
   selectedPlayer: PlayerMatch | null;
   onSelectPlayer: (player: PlayerMatch) => void;
   onBackToPlayers: () => void;
 };
-
-function formatSize(bytes: number): string {
-  const gb = bytes / 1024 ** 3;
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  const mb = bytes / 1024 ** 2;
-  if (mb >= 1) return `${Math.round(mb)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
 
 export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlayers }: GameArchiveImportProps) {
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
@@ -48,13 +41,24 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
     setAddStatus(null);
     try {
       if (file.name.toLowerCase().endsWith('.zip')) {
-        if (file.size > IN_MEMORY_LIMIT_BYTES) {
-          setAddStatus(`This archive is ${formatSize(file.size)} — too large to unzip in the browser. Extract the .pgn first, then add that.`);
+        if (file.size > MAX_FILE_BYTES) {
+          setAddStatus(`This archive is ${formatSize(file.size)} — over the ${formatSize(MAX_FILE_BYTES)} limit. Extract the .pgn first (it'll likely be smaller zipped), then add that.`);
           return;
         }
         const pgnText = await extractPgnFromFile(file);
-        await addArchiveToLibrary(file.name.replace(/\.zip$/i, '.pgn'), new Blob([pgnText], { type: 'text/plain' }));
+        // Compression means a zip under the limit can still unpack to PGN text over
+        // it -- check the actual extracted size too, not just the zip's own.
+        const pgnBlob = new Blob([pgnText], { type: 'text/plain' });
+        if (pgnBlob.size > MAX_FILE_BYTES) {
+          setAddStatus(`This archive unpacks to ${formatSize(pgnBlob.size)} of PGN — over the ${formatSize(MAX_FILE_BYTES)} limit. Split it into smaller files first.`);
+          return;
+        }
+        await addArchiveToLibrary(file.name.replace(/\.zip$/i, '.pgn'), pgnBlob);
       } else {
+        if (file.size > MAX_FILE_BYTES) {
+          setAddStatus(`This file is ${formatSize(file.size)} — over the ${formatSize(MAX_FILE_BYTES)} limit. Split it into smaller files first.`);
+          return;
+        }
         await addArchiveToLibrary(file.name, file);
       }
       await refreshLibrary();
@@ -99,16 +103,11 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
   return (
     <div className="archive-import layout-card">
       <p className="archive-import__hint">
-        Build a local game database from{' '}
-        <a href="https://theweekinchess.com/twic" target="_blank" rel="noreferrer">
-          The Week in Chess
-        </a>
-        , from{' '}
+        Import .pgn files -- e.g. from{' '}
         <a href="https://s2.chess-results.com/partiesuche.aspx?lan=1" target="_blank" rel="noreferrer">
           chess-results.com
         </a>{' '}
-        (search a player, check "Download PGN"), or any .pgn database — added files stay in your browser between
-        visits.
+        -- they stay in your browser between visits.
       </p>
 
       <div className="archive-import__file-row">

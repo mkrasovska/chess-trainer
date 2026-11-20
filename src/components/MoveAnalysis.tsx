@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAiRequest } from '../hooks/useAiRequest';
 import { AiResultPanel } from './AiResultPanel';
+import { AiSettings } from './AiSettings';
 import { createAnalysisEngine, type PositionEval } from '../lib/analysisEngine';
-import { AI_PROVIDERS, getAiProvider } from '../lib/ai/provider';
+import { AI_PROVIDERS, getAiProvider, getModel, isAiConfigured } from '../lib/ai/provider';
 import { formatRankedCandidates, formatScore, moverPerspective, sanToUci, type RankedCandidate } from '../lib/evalFormat';
 import { buildMoveAnalysisPrompt } from '../lib/moveAnalysisPrompt';
 
@@ -30,6 +31,14 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
   // independent steps, not one bundled action.
   const [evals, setEvals] = useState<{ before: PositionEval; after: PositionEval } | null>(null);
   const providerLabel = AI_PROVIDERS.find((p) => p.id === getAiProvider())?.label ?? 'AI';
+
+  // isAiConfigured/getModel read localStorage directly (AiSettings only persists on
+  // Save), so this needs to be recomputed after a save -- aiConfigVersion is bumped
+  // via AiSettings' onSaved to force that.
+  const [aiConfigVersion, setAiConfigVersion] = useState(0);
+  const aiReady = useMemo(() => isAiConfigured(), [aiConfigVersion]);
+  const aiModel = useMemo(() => getModel(getAiProvider()), [aiConfigVersion]);
+  const aiButtonTitle = aiReady ? aiModel : 'Please select AI model and set token to enable';
 
   const handleAnalyze = async () => {
     clear();
@@ -110,21 +119,25 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
       )}
 
       {evals && (
-        <button
-          type="button"
-          className="btn btn-sm btn-outline move-analysis__ai-button"
-          onClick={handleAskAi}
-          disabled={isAsking}
-        >
-          {isAsking ? (
-            <>
-              <span className="loading loading-spinner loading-xs" />
-              Asking {providerLabel}...
-            </>
-          ) : (
-            'AI analysis'
-          )}
-        </button>
+        <div className="move-analysis__ai-row">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline move-analysis__ai-button"
+            onClick={handleAskAi}
+            disabled={isAsking || !aiReady}
+            title={aiButtonTitle}
+          >
+            {isAsking ? (
+              <>
+                <span className="loading loading-spinner loading-xs" />
+                Asking {providerLabel}...
+              </>
+            ) : (
+              'AI analysis'
+            )}
+          </button>
+          <AiSettings onSaved={() => setAiConfigVersion((v) => v + 1)} />
+        </div>
       )}
 
       <AiResultPanel result={result} error={error} onClose={clear} />

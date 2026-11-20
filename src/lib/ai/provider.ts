@@ -50,6 +50,13 @@ export function getModel(provider: AiProviderId): string {
   return readStorage(modelStorageKey(provider));
 }
 
+/** Whether the currently selected provider has both an API key and a model chosen --
+ *  the two things `ask` actually requires before it can make a request. */
+export function isAiConfigured(): boolean {
+  const provider = getAiProvider();
+  return Boolean(getApiKey(provider).trim() && getModel(provider).trim());
+}
+
 export function setModel(provider: AiProviderId, model: string): void {
   writeStorage(modelStorageKey(provider), model);
 }
