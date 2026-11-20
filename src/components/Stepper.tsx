@@ -1,8 +1,8 @@
 export type Step = 1 | 2 | 3;
 
 const STEP_LABELS: Record<Step, string> = {
-  1: 'Source & Search',
-  2: 'Filter & Browse',
+  1: 'Source',
+  2: 'Filter',
   3: 'Analysis',
 };
 
