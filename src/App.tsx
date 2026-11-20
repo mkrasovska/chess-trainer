@@ -3,7 +3,6 @@ import { Board, DEFAULT_BOARD_SIZE } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
 import { GamesTable } from './components/GamesTable';
-import { LichessImport } from './components/LichessImport';
 import { MoveAnalysis } from './components/MoveAnalysis';
 import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
@@ -16,7 +15,8 @@ import type { PlayerMatch } from './lib/playerMatch';
 import type { PgnGame } from './lib/pgnUtils';
 import './App.css';
 
-type ImportTab = 'paste' | 'archive' | 'lichess';
+// 'lichess' removed for now -- LichessImport.tsx is kept but unused, not deleted.
+type ImportTab = 'paste' | 'archive';
 
 function uciToArrow(uciMove: string) {
   return {
@@ -191,14 +191,6 @@ function App() {
           >
             Download PGN
           </button>
-          <button
-            type="button"
-            role="tab"
-            className={importTab === 'lichess' ? 'tab tab-active' : 'tab'}
-            onClick={() => handleTabChange('lichess')}
-          >
-            Lichess
-          </button>
         </div>
 
         {importTab === 'paste' && (
@@ -217,7 +209,6 @@ function App() {
             onBackToPlayers={handleBackToPlayers}
           />
         )}
-        {importTab === 'lichess' && <LichessImport onGamesResolved={applyResolvedGames} />}
 
         {playerGames.length > 1 && (
           <div className="source-grid">
