@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { extractPgnFromFile } from '../lib/archiveFile';
 import { addArchiveToLibrary, listLibrary, loadLibraryGames, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
-import { findPlayersInGames, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
+import { findPlayersInGames, findSoleRecurringPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import { formatSize, MAX_FILE_BYTES } from '../lib/sourceLimits';
 
 type GameArchiveImportProps = {
@@ -22,8 +22,26 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
 
   const refreshLibrary = () => listLibrary().then(setLibrary);
 
+  // If exactly one player identity appears in every game in the library (a personal
+  // archive, as opposed to a tournament-wide one with many distinct players), skip
+  // straight to it instead of requiring a manual name search -- same as Lichess,
+  // where the player is already known from the username typed in.
+  const tryAutoSelect = async () => {
+    try {
+      const games = await loadLibraryGames();
+      const sole = findSoleRecurringPlayer(games);
+      if (sole) onSelectPlayer(sole);
+    } catch {
+      // Falls back to the manual "Find players" search below.
+    }
+  };
+
   useEffect(() => {
     refreshLibrary();
+    tryAutoSelect();
+    // Mount-only: re-running on every onSelectPlayer identity change would refire
+    // this for no reason, since the library itself hasn't changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Previous "Find players" results (and the search term that produced them)
@@ -63,6 +81,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
       }
       await refreshLibrary();
       clearPlayerSearch();
+      await tryAutoSelect();
     } catch {
       setAddStatus('Could not read this file. Expected a .zip or .pgn file.');
     } finally {
@@ -74,6 +93,7 @@ export function GameArchiveImport({ selectedPlayer, onSelectPlayer, onBackToPlay
     await removeFromLibrary(id);
     await refreshLibrary();
     clearPlayerSearch();
+    await tryAutoSelect();
   };
 
   const handleFindPlayers = async () => {

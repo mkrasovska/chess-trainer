@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { findPlayersInGames, getGamesForPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
+import { findPlayersInGames, findSoleRecurringPlayer, getGamesForPlayer, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
 import { formatSize, MAX_PASTE_BYTES } from '../lib/sourceLimits';
 
 type PgnImportProps = {
   onLoad: (pgn: string) => void;
   onGamesResolved: (games: PgnGame[], player: PlayerMatch) => void;
+  // Clears whatever an earlier paste resolved -- a fresh Load always calls this
+  // first, so a new paste that DOESN'T auto-resolve to a player (unlike the one
+  // before it) doesn't leave the previous paste's table/filters stuck on screen.
+  onBackToPlayers: () => void;
   error: string | null;
 };
 
-export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
+export function PgnImport({ onLoad, onGamesResolved, onBackToPlayers, error }: PgnImportProps) {
   const [pgnText, setPgnText] = useState('');
   const [pastedGames, setPastedGames] = useState<PgnGame[] | null>(null);
   const [nameTerm, setNameTerm] = useState('');
@@ -19,6 +23,7 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
 
   const handleLoad = () => {
     setPasteError(null);
+    onBackToPlayers();
     const byteSize = new Blob([pgnText]).size;
     if (byteSize > MAX_PASTE_BYTES) {
       setPasteError(
@@ -36,6 +41,16 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
       return;
     }
     setPastedGames(games);
+
+    // If exactly one player identity appears in every pasted game (as opposed to a
+    // tournament dump with many distinct players), skip straight to it instead of
+    // requiring a manual name search -- same as Lichess, where the player is already
+    // known from the username typed in.
+    const sole = findSoleRecurringPlayer(games);
+    if (sole) {
+      setSelectedPlayer(sole);
+      onGamesResolved(getGamesForPlayer(games, sole.name, sole.fideId), sole);
+    }
   };
 
   const handleFindPlayers = () => {

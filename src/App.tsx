@@ -61,12 +61,17 @@ function App() {
   };
 
   // Switching import tabs should drop whatever game/position was loaded, not carry
-  // it over to a tab the user is now looking at for a different purpose.
+  // it over to a tab the user is now looking at for a different purpose -- including
+  // the resolved player/games table (and its filters/counters), which otherwise kept
+  // showing the previous source's data since nothing else ever cleared it.
   const handleTabChange = (tab: ImportTab) => {
     setImportTab(tab);
     gameAnalysis.clear();
     reset();
     setCurrentStep(1);
+    setSelectedPlayer(null);
+    setPlayerGames([]);
+    setGamesStatus(null);
   };
 
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
@@ -75,16 +80,15 @@ function App() {
   const [gamesStatus, setGamesStatus] = useState<string | null>(null);
 
   // What every source funnels into once it has resolved a player + their games:
-  // one game means there's nothing to filter/compare, so skip step 2 entirely;
-  // more than one advances to step 2 (the step-3 advance itself is handled below,
-  // triggered uniformly by a game actually loading, from any path).
+  // one game means there's nothing to filter/compare, so jump straight to it; more
+  // than one stays on step 1, where the games table now renders right below the
+  // source pickers (the step-2 advance is handled below, triggered uniformly by a
+  // game actually loading, from any path).
   const applyResolvedGames = (games: PgnGame[], player: PlayerMatch) => {
     setSelectedPlayer(player);
     setPlayerGames(games);
     if (games.length === 1) {
       handleLoadPgn(games[0].raw);
-    } else if (games.length > 1) {
-      setCurrentStep(2);
     }
   };
 
@@ -92,22 +96,22 @@ function App() {
     if (isReady) evaluate(currentFen);
   }, [isReady, currentFen, evaluate]);
 
-  // Advances to step 3 whenever a game actually (successfully) loads, regardless of
-  // which path got there (single-game shortcut, or picking a row in step 2) -- and
-  // regardless of whether a game was already loaded, so re-picking a different (or
-  // even the same) row from step 2 jumps back to step 3 too. Compared by identity
+  // Advances to step 2 whenever a game actually (successfully) loads, regardless of
+  // which path got there (single-game shortcut, or picking a row from the games
+  // table) -- and regardless of whether a game was already loaded, so re-picking a
+  // different (or even the same) row jumps back to step 2 too. Compared by identity
   // rather than by "is it loaded" so this fires on every successful load, not just
   // the first one; a failed load leaves gameInfo's reference unchanged, so it
   // correctly never fires then, letting the error stay visible on step 1.
   const isGameLoaded = gameInfo !== null;
   const prevGameInfoRef = useRef(gameInfo);
   useEffect(() => {
-    if (gameInfo !== null && gameInfo !== prevGameInfoRef.current) setCurrentStep(3);
+    if (gameInfo !== null && gameInfo !== prevGameInfoRef.current) setCurrentStep(2);
     prevGameInfoRef.current = gameInfo;
   }, [gameInfo]);
 
   // Left/right arrow keys step through moves, same as the |< < > >| buttons, but only
-  // while step 3 (the board) is actually visible -- otherwise they'd silently move a
+  // while step 2 (the board) is actually visible -- otherwise they'd silently move a
   // piece you can't see. goPrev/goNext/currentStep are read through a ref rather than
   // listed as effect deps so one listener stays attached for the component's lifetime
   // instead of detaching/reattaching on every navigation.
@@ -115,7 +119,7 @@ function App() {
   navRef.current = { goPrev, goNext, currentStep };
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (navRef.current.currentStep !== 3) return;
+      if (navRef.current.currentStep !== 2) return;
       const target = e.target as HTMLElement | null;
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return;
       if (e.key === 'ArrowLeft') {
@@ -163,8 +167,7 @@ function App() {
     }
   };
 
-  const step2Reachable = selectedPlayer !== null && playerGames.length > 1;
-  const step3Reachable = isGameLoaded;
+  const step2Reachable = isGameLoaded;
 
   return (
     <div className="app">
@@ -175,12 +178,7 @@ function App() {
         </div>
       </div>
 
-      <Stepper
-        currentStep={currentStep}
-        step2Reachable={step2Reachable}
-        step3Reachable={step3Reachable}
-        onSelectStep={setCurrentStep}
-      />
+      <Stepper currentStep={currentStep} step2Reachable={step2Reachable} onSelectStep={setCurrentStep} />
 
       <div style={{ display: currentStep === 1 ? undefined : 'none' }}>
         <div role="tablist" className="tabs tabs-boxed app__tabs">
@@ -211,7 +209,12 @@ function App() {
         </div>
 
         {importTab === 'paste' && (
-          <PgnImport onLoad={handleLoadPgn} onGamesResolved={applyResolvedGames} error={error} />
+          <PgnImport
+            onLoad={handleLoadPgn}
+            onGamesResolved={applyResolvedGames}
+            onBackToPlayers={handleBackToPlayers}
+            error={error}
+          />
         )}
         {importTab === 'archive' && (
           <>
@@ -225,9 +228,7 @@ function App() {
           </>
         )}
         {importTab === 'lichess' && <LichessImport onGamesResolved={applyResolvedGames} />}
-      </div>
 
-      <div style={{ display: currentStep === 2 ? undefined : 'none' }}>
         {selectedPlayer && playerGames.length > 1 && (
           <div className="source-grid">
             <GamesTable games={playerGames} selectedPlayer={selectedPlayer} onSelectGame={handleLoadPgn} />
@@ -235,7 +236,7 @@ function App() {
         )}
       </div>
 
-      <div style={{ display: currentStep === 3 ? undefined : 'none' }}>
+      <div style={{ display: currentStep === 2 ? undefined : 'none' }}>
         <div className="app__board-panel layout-card">
           <div className="app__board-row">
             <EvalBar
