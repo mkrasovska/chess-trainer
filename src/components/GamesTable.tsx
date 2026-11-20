@@ -4,17 +4,12 @@ import { PatternFilter } from './PatternFilter';
 import { usePrepLine } from '../hooks/usePrepLine';
 import { getHistory, historyMatchesPrefix } from '../lib/prepMatch';
 import { getColor, getNextMoveBreakdown, getOutcome, getYear, type Color, type Outcome } from '../lib/gameStats';
-import type { PlayerMatch } from '../lib/playerMatch';
+import { findPlayersInGames, MAX_PLAYERS, type PlayerMatch } from '../lib/playerMatch';
 import type { PgnGame } from '../lib/pgnUtils';
 
 type GamesTableProps = {
   games: PgnGame[];
   onSelectGame: (pgn: string) => void;
-  // null until a player is chosen (or auto-detected) -- the raw table is still fully
-  // browsable without one; picking a player only adds the Color/Result filters, the
-  // pattern-filter's stats, and the opening-stats card, all of which need a specific
-  // perspective to compute color/outcome from.
-  selectedPlayer: PlayerMatch | null;
 };
 
 type FilterableOutcome = Exclude<Outcome, 'unknown'>;
@@ -52,11 +47,38 @@ type Row = HistoryRow & {
 
 type FilterGroup = 'color' | 'outcome' | 'year' | 'pattern';
 
-export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTableProps) {
+export function GamesTable({ games, onSelectGame }: GamesTableProps) {
+  // Player is a filter like any other below (Color/Result/Year) -- whose own games
+  // these are isn't known from the source, so it's picked here, from a dropdown of
+  // every distinct identity found in the pool, not passed in from outside.
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
+  // The <input list> text -- kept separate from selectedPlayer so partial typing
+  // (not yet matching any suggestion exactly) doesn't itself count as a selection.
+  const [playerQuery, setPlayerQuery] = useState('');
+
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
+
+  // A new source (different `games` identity) invalidates every filter choice made
+  // against the previous one -- otherwise the previous source's player/filters would
+  // keep being applied (and shown) against the new pool.
+  useEffect(() => {
+    setSelectedPlayer(null);
+    setPlayerQuery('');
+    setColorFilter(new Set());
+    setOutcomeFilter(new Set());
+    setYearFrom('');
+    setYearTo('');
+  }, [games]);
+
+  const allPlayers = useMemo(() => findPlayersInGames(games, '', MAX_PLAYERS), [games]);
+  const playerKey = (p: PlayerMatch) => `${p.name}:${p.fideId ?? ''}`;
+  // Just the name (plus FIDE ID to disambiguate same-named players) -- this is what
+  // actually sits in the (editable) input once picked, so a volatile "N games" count
+  // baked into that same text would look like a stray, editable part of the name.
+  const playerIdentifier = (p: PlayerMatch) => `${p.name}${p.fideId ? ` (FIDE ${p.fideId})` : ''}`;
 
   const { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset } = usePrepLine();
   const moveSans = useMemo(() => moves.map((m) => m.san), [moves]);
@@ -175,6 +197,55 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
     <>
       <div className={`layout-card${outcomeFilter.size > 0 ? ' layout-card--full' : ''}`}>
         <div className="games-table__filters">
+          <span className="games-table__filter-group">
+            <span className="games-table__filter-label">Player</span>
+            <input
+              type="text"
+              list="games-table-players"
+              className="input input-bordered input-xs games-table__player-select"
+              placeholder="All players"
+              value={playerQuery}
+              onChange={(e) => {
+                const value = e.target.value;
+                setPlayerQuery(value);
+                // Only an exact match (i.e. an actual pick from the list, not partial
+                // typing) counts as a selection.
+                setSelectedPlayer(allPlayers.find((p) => playerIdentifier(p) === value) ?? null);
+              }}
+            />
+            <datalist id="games-table-players">
+              {allPlayers.map((player) => (
+                <option
+                  key={playerKey(player)}
+                  value={playerIdentifier(player)}
+                  label={`${player.gameCount} game${player.gameCount === 1 ? '' : 's'}`}
+                />
+              ))}
+            </datalist>
+            {selectedPlayer && (
+              <span className="games-table__player-count">
+                {selectedPlayer.gameCount} game{selectedPlayer.gameCount === 1 ? '' : 's'}
+              </span>
+            )}
+          </span>
+          <span className="games-table__filter-group">
+            <span className="games-table__filter-label">Year</span>
+            <input
+              type="number"
+              className="input input-bordered input-xs games-table__year-input"
+              placeholder="From"
+              value={yearFrom}
+              onChange={(e) => setYearFrom(e.target.value)}
+            />
+            <span>–</span>
+            <input
+              type="number"
+              className="input input-bordered input-xs games-table__year-input"
+              placeholder="To"
+              value={yearTo}
+              onChange={(e) => setYearTo(e.target.value)}
+            />
+          </span>
           {selectedPlayer && (
             <>
               <span className="games-table__filter-group">
@@ -207,24 +278,6 @@ export function GamesTable({ games, onSelectGame, selectedPlayer }: GamesTablePr
               </span>
             </>
           )}
-          <span className="games-table__filter-group">
-            <span className="games-table__filter-label">Year</span>
-            <input
-              type="number"
-              className="input input-bordered input-xs games-table__year-input"
-              placeholder="From"
-              value={yearFrom}
-              onChange={(e) => setYearFrom(e.target.value)}
-            />
-            <span>–</span>
-            <input
-              type="number"
-              className="input input-bordered input-xs games-table__year-input"
-              placeholder="To"
-              value={yearTo}
-              onChange={(e) => setYearTo(e.target.value)}
-            />
-          </span>
         </div>
 
         {selectedPlayer && (

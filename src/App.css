@@ -278,25 +278,10 @@
   border: 0;
 }
 
-.archive-import__search-row {
-  display: flex;
-  gap: 8px;
-}
-
 .archive-import__library {
   border: 1px solid var(--border, #e5e4e7);
   border-radius: 4px;
   overflow: hidden;
-}
-
-.archive-import__selected-player {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 0;
 }
 
 .archive-import__library-row {
@@ -321,51 +306,6 @@
 .archive-import__library-size {
   color: var(--text, #6b6375);
   font-size: 12px;
-}
-
-.archive-import__search {
-  flex: 1;
-  min-width: 0;
-}
-
-.archive-import__results {
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid var(--border, #e5e4e7);
-  border-radius: 4px;
-}
-
-.archive-import__result {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 100%;
-  padding: 6px 8px;
-  border: none;
-  border-bottom: 1px solid var(--border, #e5e4e7);
-  background: none;
-  cursor: pointer;
-  text-align: left;
-}
-
-.archive-import__result:hover {
-  background: var(--accent-bg, rgba(170, 59, 255, 0.1));
-}
-
-.archive-import__players {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.archive-import__meta {
-  font-size: 12px;
-  color: var(--text, #6b6375);
-}
-
-.archive-import__more-hint {
-  font-size: 12px;
-  color: var(--text, #6b6375);
-  padding: 6px 8px;
 }
 
 .move-list {
@@ -616,6 +556,16 @@
 
 .games-table__year-input {
   width: 64px;
+}
+
+.games-table__player-select {
+  max-width: 220px;
+}
+
+.games-table__player-count {
+  font-size: 12px;
+  color: var(--text, #6b6375);
+  white-space: nowrap;
 }
 
 .games-table__filters-count {
