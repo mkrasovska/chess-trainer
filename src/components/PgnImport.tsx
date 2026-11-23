@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Box, Button, Paper, TextField, Typography } from '@mui/material';
 import { loadPgnGames, type PgnGame } from '../lib/pgnUtils';
 import { formatSize, MAX_PASTE_BYTES } from '../lib/sourceLimits';
 
@@ -36,20 +37,22 @@ export function PgnImport({ onLoad, onGamesResolved, error }: PgnImportProps) {
   };
 
   return (
-    <div className="pgn-import layout-card">
-      <textarea
-        className="textarea textarea-bordered pgn-import__textarea"
+    <Paper variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+      <TextField
+        multiline
+        minRows={6}
         placeholder="Paste one or more PGN games here..."
         value={pgnText}
         onChange={(e) => setPgnText(e.target.value)}
-        rows={6}
       />
-      <button type="button" className="btn btn-primary btn-sm pgn-import__button" onClick={handleLoad}>
-        Load
-      </button>
-      {error && <p className="pgn-import__error">{error}</p>}
-      {pasteError && <p className="pgn-import__error">{pasteError}</p>}
-      {pastedCount !== null && <p className="archive-import__status">{pastedCount} games pasted.</p>}
-    </div>
+      <Box>
+        <Button variant="contained" size="small" onClick={handleLoad}>
+          Load
+        </Button>
+      </Box>
+      {error && <Typography color="error">{error}</Typography>}
+      {pasteError && <Typography color="error">{pasteError}</Typography>}
+      {pastedCount !== null && <Typography variant="body2">{pastedCount} games pasted.</Typography>}
+    </Paper>
   );
 }

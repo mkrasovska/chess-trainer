@@ -1,10 +1,12 @@
+import { Box, Typography } from '@mui/material';
+
 type EvalBarProps = {
   scoreCp: number | null;
   scoreMate: number | null;
   sideToMove: 'w' | 'b';
   depth: number | null;
   // Matches the board's actual rendered size so the bar is never taller/shorter
-  // than the board it sits beside; falls back to the CSS default when omitted.
+  // than the board it sits beside; falls back to a sensible default when omitted.
   trackHeight?: number;
 };
 
@@ -32,14 +34,31 @@ export function EvalBar({ scoreCp, scoreMate, sideToMove, depth, trackHeight }: 
   }
 
   return (
-    <div className="eval-bar">
-      <div className="eval-bar__track" style={trackHeight !== undefined ? { height: trackHeight } : undefined}>
-        <div className="eval-bar__fill" style={{ height: `${whitePercent}%` }} />
-      </div>
-      <div className="eval-bar__info">
-        <span className="eval-bar__label">{label}</span>
-        {depth !== null && <span className="eval-bar__depth">depth {depth}</span>}
-      </div>
-    </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75, width: 32 }}>
+      <Box
+        sx={{
+          width: '100%',
+          height: trackHeight ?? 480,
+          bgcolor: 'grey.900',
+          borderRadius: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          overflow: 'hidden',
+        }}
+      >
+        <Box sx={{ width: '100%', height: `${whitePercent}%`, bgcolor: 'grey.100', transition: 'height 0.2s ease' }} />
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Typography variant="caption" sx={{ fontWeight: 700 }}>
+          {label}
+        </Typography>
+        {depth !== null && (
+          <Typography variant="caption" color="text.secondary">
+            depth {depth}
+          </Typography>
+        )}
+      </Box>
+    </Box>
   );
 }

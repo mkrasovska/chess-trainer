@@ -1,3 +1,5 @@
+import { Step as MuiStep, StepButton, Stepper as MuiStepper } from '@mui/material';
+
 export type Step = 1 | 2;
 
 const STEP_LABELS: Record<Step, string> = {
@@ -17,21 +19,15 @@ type StepperProps = {
 export function Stepper({ currentStep, step2Reachable, onSelectStep }: StepperProps) {
   const reachable: Record<Step, boolean> = { 1: true, 2: step2Reachable };
 
-  // DaisyUI colors a step (and the connecting line before it) via step-primary,
-  // so every step up through the current one gets it, not just the current one.
   return (
-    <ul className="steps steps-horizontal w-full my-4">
+    <MuiStepper nonLinear activeStep={currentStep - 1} sx={{ my: 4 }}>
       {([1, 2] as const).map((step) => (
-        <li
-          key={step}
-          className={`step ${step <= currentStep ? 'step-primary' : ''} ${
-            reachable[step] ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'
-          }`}
-          onClick={() => reachable[step] && onSelectStep(step)}
-        >
-          {STEP_LABELS[step]}
-        </li>
+        <MuiStep key={step} completed={step < currentStep}>
+          <StepButton disabled={!reachable[step]} onClick={() => onSelectStep(step)}>
+            {STEP_LABELS[step]}
+          </StepButton>
+        </MuiStep>
       ))}
-    </ul>
+    </MuiStepper>
   );
 }

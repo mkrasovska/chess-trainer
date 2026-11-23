@@ -1,3 +1,4 @@
+import { Box, Button, Chip, Stack, Typography } from '@mui/material';
 import type { Move } from 'chess.js';
 import type { OpeningStat } from '../lib/gameStats';
 import { Board } from './Board';
@@ -30,59 +31,67 @@ export function PatternFilter({
   const onlyOneGameLeft = nextMoveOptions.length > 0 && matchingGames <= 1;
 
   return (
-    <div className="pattern-filter">
-      <h2>Filter by game patterns</h2>
-      <div className="pattern-filter__row">
-        <div className="pattern-filter__board">
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Filter by game patterns
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
+        <Box sx={{ flexShrink: 0 }}>
           <Board fen={fen} onMove={onMove} id="pattern-filter-board" size={280} />
-        </div>
-        <div className="pattern-filter__side">
-          <div className="pattern-filter__picked">
+        </Box>
+        <Box sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
             {moves.length === 0 ? (
-              <span className="pattern-filter__picked-empty">(no moves selected yet)</span>
+              <Typography variant="body2" color="text.secondary">
+                (no moves selected yet)
+              </Typography>
             ) : (
               moves.map((move, i) => (
-                <button
+                <Chip
                   key={i}
-                  type="button"
-                  className="pattern-filter__picked-move"
+                  size="small"
+                  variant="outlined"
+                  label={`${i % 2 === 0 ? `${i / 2 + 1}. ` : ''}${move.san}`}
                   onClick={() => onTruncate(i + 1)}
                   title="Go back to right after this move"
-                >
-                  {i % 2 === 0 ? `${i / 2 + 1}.` : ''}
-                  {move.san}
-                </button>
+                  sx={{ fontFamily: 'monospace' }}
+                />
               ))
             )}
-          </div>
-          <div className="pattern-filter__nav">
-            <button type="button" className="pattern-filter__nav-btn" onClick={onUndo} disabled={moves.length === 0}>
+          </Box>
+          <Stack spacing={0.75}>
+            <Button variant="outlined" size="small" fullWidth onClick={onUndo} disabled={moves.length === 0}>
               Undo
-            </button>
-            <button type="button" className="pattern-filter__nav-btn" onClick={onReset} disabled={moves.length === 0}>
+            </Button>
+            <Button variant="outlined" size="small" fullWidth onClick={onReset} disabled={moves.length === 0}>
               Reset
-            </button>
-          </div>
-          <div className="pattern-filter__options">
+            </Button>
+          </Stack>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
             {nextMoveOptions.length === 0 ? (
-              <span className="pattern-filter__no-options">No games continue past this point.</span>
+              <Typography variant="body2" color="text.secondary">
+                No games continue past this point.
+              </Typography>
             ) : onlyOneGameLeft ? (
-              <span className="pattern-filter__no-options">Only 1 matching game left</span>
+              <Typography variant="body2" color="text.secondary">
+                Only 1 matching game left
+              </Typography>
             ) : (
               nextMoveOptions.map((option) => (
-                <button
+                <Chip
                   key={option.name}
-                  type="button"
-                  className="btn btn-xs btn-soft btn-primary pattern-filter__option"
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  clickable
+                  label={`${option.name} (${option.count})`}
                   onClick={() => onPickMove(option.name)}
-                >
-                  {option.name} ({option.count})
-                </button>
+                />
               ))
             )}
-          </div>
-        </div>
-      </div>
-    </div>
+          </Box>
+        </Box>
+      </Box>
+    </Box>
   );
 }

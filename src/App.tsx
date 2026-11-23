@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Box, Button, Container, IconButton, Paper, Tab, Tabs, Typography } from '@mui/material';
+import { visuallyHidden } from '@mui/utils';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
 import { Board, DEFAULT_BOARD_SIZE } from './components/Board';
 import { EvalBar } from './components/EvalBar';
 import { GameArchiveImport } from './components/GameArchiveImport';
@@ -12,7 +18,6 @@ import { useGameAnalysis } from './hooks/useGameAnalysis';
 import { useStockfish } from './hooks/useStockfish';
 import { useViewportWidth } from './hooks/useViewportWidth';
 import type { PgnGame } from './lib/pgnUtils';
-import './App.css';
 
 // 'lichess' removed for now -- LichessImport.tsx is kept but unused, not deleted.
 type ImportTab = 'paste' | 'archive';
@@ -134,56 +139,42 @@ function App() {
   // broke its internal grid rendering. Computing a real pixel size from the viewport here
   // keeps Board's literal-pixel-size contract intact while still shrinking it to fit next
   // to the eval bar on a narrow screen, instead of letting the row wrap.
-  const BOARD_ROW_CHROME = 96; // .app side padding (32) + eval bar + gap (44) + safety margin (20)
+  const BOARD_ROW_CHROME = 96; // side padding + eval bar + gap + safety margin
   const viewportWidth = useViewportWidth();
   const boardSize = Math.max(200, Math.min(DEFAULT_BOARD_SIZE, viewportWidth - BOARD_ROW_CHROME));
 
   const step2Reachable = isGameLoaded;
 
   return (
-    <div className="app">
-      <div className="app__header">
-        <div className="app__brand">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="app__logo" />
-          <h1 className="sr-only">ChessPoint</h1>
-        </div>
-      </div>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+        <Box component="img" src={`${import.meta.env.BASE_URL}logo.png`} alt="" sx={{ height: 56 }} />
+        <Typography variant="h1" sx={visuallyHidden}>
+          ChessPoint
+        </Typography>
+      </Box>
 
       <Stepper currentStep={currentStep} step2Reachable={step2Reachable} onSelectStep={setCurrentStep} />
 
-      <div style={{ display: currentStep === 1 ? undefined : 'none' }}>
-        <div role="tablist" className="tabs tabs-boxed app__tabs">
-          <button
-            type="button"
-            role="tab"
-            className={importTab === 'paste' ? 'tab tab-active' : 'tab'}
-            onClick={() => handleTabChange('paste')}
-          >
-            Paste PGN
-          </button>
-          <button
-            type="button"
-            role="tab"
-            className={importTab === 'archive' ? 'tab tab-active' : 'tab'}
-            onClick={() => handleTabChange('archive')}
-          >
-            Download PGN
-          </button>
-        </div>
+      <Box sx={{ display: currentStep === 1 ? undefined : 'none' }}>
+        <Tabs value={importTab} onChange={(_e, value) => handleTabChange(value)} sx={{ mb: 2 }}>
+          <Tab label="Paste PGN" value="paste" />
+          <Tab label="Download PGN" value="archive" />
+        </Tabs>
 
         {importTab === 'paste' && <PgnImport onLoad={handleLoadPgn} onGamesResolved={applyResolvedGames} error={error} />}
         {importTab === 'archive' && <GameArchiveImport onGamesLoaded={applyResolvedGames} />}
 
         {sourceGames.length > 1 && (
-          <div className="source-grid">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2, mt: 2 }}>
             <GamesTable games={sourceGames} onSelectGame={handleLoadPgn} />
-          </div>
+          </Box>
         )}
-      </div>
+      </Box>
 
-      <div style={{ display: currentStep === 2 ? undefined : 'none' }}>
-        <div className="app__board-panel layout-card">
-          <div className="app__board-row">
+      <Box sx={{ display: currentStep === 2 ? undefined : 'none' }}>
+        <Paper variant="outlined" sx={{ p: 2, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
             <EvalBar
               scoreCp={line?.scoreCp ?? null}
               scoreMate={line?.scoreMate ?? null}
@@ -191,29 +182,40 @@ function App() {
               depth={line?.depth ?? null}
               trackHeight={boardSize}
             />
-            <div className="app__board">
+            <Box sx={{ minWidth: 0 }}>
               {gameInfo && (
-                <p className="app__game-info">
+                <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
                   {gameInfo.white} vs {gameInfo.black}
                   {gameInfo.year !== null && ` (${gameInfo.year})`}
-                </p>
+                </Typography>
               )}
               <Board fen={currentFen} onMove={makeMove} arrows={arrows} size={boardSize} />
-              <div className="app__nav">
-                <button type="button" className="btn btn-sm flex-1" onClick={goFirst} disabled={isBranching}>{'|<'}</button>
-                <button type="button" className="btn btn-sm flex-1" onClick={goPrev}>{'<'}</button>
-                <button type="button" className="btn btn-sm flex-1" onClick={goNext} disabled={isBranching}>{'>'}</button>
-                <button type="button" className="btn btn-sm flex-1" onClick={goLast} disabled={isBranching}>{'>|'}</button>
-              </div>
+              <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+                <IconButton size="small" onClick={goFirst} disabled={isBranching}>
+                  <SkipPreviousIcon />
+                </IconButton>
+                <IconButton size="small" onClick={goPrev}>
+                  <NavigateBeforeIcon />
+                </IconButton>
+                <IconButton size="small" onClick={goNext} disabled={isBranching}>
+                  <NavigateNextIcon />
+                </IconButton>
+                <IconButton size="small" onClick={goLast} disabled={isBranching}>
+                  <SkipNextIcon />
+                </IconButton>
+              </Box>
               {isBranching && (
-                <div className="app__branch-banner">
-                  <span>
-                    Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
-                  </span>
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={returnToMainline}>
-                    ← back to game
-                  </button>
-                </div>
+                <Alert
+                  severity="info"
+                  sx={{ mt: 1.5 }}
+                  action={
+                    <Button color="inherit" size="small" onClick={returnToMainline}>
+                      ← back to game
+                    </Button>
+                  }
+                >
+                  Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
+                </Alert>
               )}
               {lastMoveSan && previousFen && (
                 <MoveAnalysis
@@ -224,37 +226,32 @@ function App() {
                   moverColor={previousFen.split(' ')[1] === 'b' ? 'b' : 'w'}
                 />
               )}
-            </div>
-          </div>
-          <div className="app__movelist-column">
+            </Box>
+          </Box>
+          <Box sx={{ flex: '1 1 260px', minWidth: 260, textAlign: 'left' }}>
             {moves.length > 0 && (
-              <div className="app__analysis-controls">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                 {!gameAnalysis.isAnalyzing && (
-                  <button type="button" className="btn btn-sm btn-primary" onClick={() => gameAnalysis.analyze(fens)}>
+                  <Button variant="contained" size="small" onClick={() => gameAnalysis.analyze(fens)}>
                     Analyze game
-                  </button>
+                  </Button>
                 )}
                 {gameAnalysis.isAnalyzing && (
                   <>
-                    <span>Analyzing... {Math.round(gameAnalysis.progress * 100)}%</span>
-                    <button type="button" className="btn btn-sm btn-ghost" onClick={gameAnalysis.cancel}>
+                    <Typography variant="body2">Analyzing... {Math.round(gameAnalysis.progress * 100)}%</Typography>
+                    <Button size="small" onClick={gameAnalysis.cancel}>
                       Cancel
-                    </button>
+                    </Button>
                   </>
                 )}
-              </div>
+              </Box>
             )}
 
-            <MoveList
-              moves={moves}
-              currentPly={currentPly}
-              onSelectPly={goToPly}
-              classifications={gameAnalysis.classifications}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+            <MoveList moves={moves} currentPly={currentPly} onSelectPly={goToPly} classifications={gameAnalysis.classifications} />
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 }
 

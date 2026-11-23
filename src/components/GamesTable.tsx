@@ -1,4 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
+import {
+  Autocomplete,
+  Box,
+  Checkbox,
+  CircularProgress,
+  FormControlLabel,
+  FormGroup,
+  IconButton,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { OpeningStats } from './OpeningStats';
 import { PatternFilter } from './PatternFilter';
 import { usePrepLine } from '../hooks/usePrepLine';
@@ -50,18 +70,21 @@ type Row = HistoryRow & {
 
 type FilterGroup = 'color' | 'outcome' | 'year' | 'pattern';
 
+const playerKey = (p: PlayerMatch) => `${p.name}:${p.fideId ?? ''}`;
+// Just the name (plus FIDE ID to disambiguate same-named players) -- this is what
+// actually sits in the search input once picked, so a volatile "N games" count baked
+// into the same label would look like a stray part of the name.
+const playerIdentifier = (p: PlayerMatch) => `${p.name}${p.fideId ? ` (FIDE ${p.fideId})` : ''}`;
+
 export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // Player is a filter like any other below (Color/Result/Year) -- whose own games
-  // these are isn't known from the source, so it's picked here, from a dropdown of
+  // these are isn't known from the source, so it's picked here, from a search of
   // every distinct identity found in the pool, not passed in from outside. Multiple
   // can be picked (OR'd together -- a game shows if ANY of them appears in it); the
   // Color/Result filters, pattern-filter, and stats card only make sense from a
   // single perspective, so they only appear while exactly one is selected.
   const [selectedPlayers, setSelectedPlayers] = useState<PlayerMatch[]>([]);
   const perspectivePlayer = selectedPlayers.length === 1 ? selectedPlayers[0] : null;
-  // The <input list> text -- kept separate from selectedPlayers so partial typing
-  // (not yet matching any suggestion exactly) doesn't itself count as a pick.
-  const [playerQuery, setPlayerQuery] = useState('');
 
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
   const [outcomeFilter, setOutcomeFilter] = useState<Set<FilterableOutcome>>(new Set());
@@ -73,7 +96,6 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // keep being applied (and shown) against the new pool.
   useEffect(() => {
     setSelectedPlayers([]);
-    setPlayerQuery('');
     setColorFilter(new Set());
     setOutcomeFilter(new Set());
     setYearFrom('');
@@ -81,14 +103,6 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   }, [games]);
 
   const allPlayers = useMemo(() => findPlayersInGames(games, '', MAX_PLAYERS), [games]);
-  const playerKey = (p: PlayerMatch) => `${p.name}:${p.fideId ?? ''}`;
-  // Just the name (plus FIDE ID to disambiguate same-named players) -- this is what
-  // actually sits in the (editable) input once picked, so a volatile "N games" count
-  // baked into that same text would look like a stray, editable part of the name.
-  const playerIdentifier = (p: PlayerMatch) => `${p.name}${p.fideId ? ` (FIDE ${p.fideId})` : ''}`;
-  // Already-picked players drop out of the suggestion list -- nothing to gain from
-  // re-suggesting someone already added.
-  const pickablePlayers = allPlayers.filter((p) => !selectedPlayers.some((sp) => playerKey(sp) === playerKey(p)));
 
   const removePlayer = (player: PlayerMatch) => {
     setSelectedPlayers((prev) => prev.filter((p) => playerKey(p) !== playerKey(player)));
@@ -199,126 +213,119 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
 
   if (isBuilding) {
     return (
-      <div className="layout-card layout-card--full">
-        <p className="games-table__loading">
-          <span className="loading loading-spinner loading-sm" />
-          Loading {games.length} games...
-        </p>
-      </div>
+      <Paper variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <CircularProgress size={18} />
+        <Typography>Loading {games.length} games...</Typography>
+      </Paper>
     );
   }
 
-  // Each section is its own top-level "block" (a sibling in the caller's .source-grid),
+  // Each section is its own top-level "block" (a sibling in the caller's layout grid),
   // not nested under one shared wrapper, so the grid can lay filters/stats/table out
   // as separate cards instead of one tall column.
   return (
     <>
-      <div className={`layout-card${outcomeFilter.size > 0 ? ' layout-card--full' : ''}`}>
-        <div className="games-table__filters">
-          <span className="games-table__filter-group games-table__filter-group--player">
-            <span className="games-table__player-search-row">
-              <span className="games-table__filter-label">Player</span>
-              <input
-                type="text"
-                list="games-table-players"
-                className="input input-bordered input-xs games-table__player-select"
-                placeholder={selectedPlayers.length === 0 ? 'All players' : 'Add another...'}
-                value={playerQuery}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const match = pickablePlayers.find((p) => playerIdentifier(p) === value);
-                  if (match) {
-                    // An exact match means an actual pick from the list (not partial
-                    // typing) -- add it and clear the box so it's ready for the next one.
-                    setSelectedPlayers((prev) => [...prev, match]);
-                    setPlayerQuery('');
-                  } else {
-                    setPlayerQuery(value);
-                  }
-                }}
-              />
-              <datalist id="games-table-players">
-                {pickablePlayers.map((player) => (
-                  <option
-                    key={playerKey(player)}
-                    value={playerIdentifier(player)}
-                    label={`${player.gameCount} game${player.gameCount === 1 ? '' : 's'}`}
-                  />
-                ))}
-              </datalist>
-            </span>
+      <Paper
+        variant="outlined"
+        sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, gridColumn: outcomeFilter.size > 0 ? '1 / -1' : undefined }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
+          <Box sx={{ width: 280 }}>
+            <Autocomplete
+              multiple
+              size="small"
+              options={allPlayers}
+              value={selectedPlayers}
+              onChange={(_e, newValue) => setSelectedPlayers(newValue)}
+              getOptionLabel={playerIdentifier}
+              isOptionEqualToValue={(a, b) => playerKey(a) === playerKey(b)}
+              renderValue={() => null}
+              renderOption={({ key: _key, ...props }, option) => (
+                <Box component="li" key={playerKey(option)} {...props}>
+                  {playerIdentifier(option)} -- {option.gameCount} game{option.gameCount === 1 ? '' : 's'}
+                </Box>
+              )}
+              renderInput={(params) => <TextField {...params} label="Player" placeholder="All players" />}
+            />
             {selectedPlayers.length > 0 && (
-              <ul className="games-table__player-list">
+              <Stack sx={{ mt: 1 }}>
                 {selectedPlayers.map((player) => (
-                  <li key={playerKey(player)} className="games-table__player-row">
-                    <span>{playerIdentifier(player)}</span>
-                    <span className="games-table__player-count">
+                  <Box key={playerKey(player)} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {playerIdentifier(player)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                       {player.gameCount} game{player.gameCount === 1 ? '' : 's'}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-xs btn-circle btn-ghost"
-                      aria-label={`Remove ${player.name}`}
-                      onClick={() => removePlayer(player)}
-                    >
-                      ×
-                    </button>
-                  </li>
+                    </Typography>
+                    <IconButton size="small" aria-label={`Remove ${player.name}`} onClick={() => removePlayer(player)}>
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 ))}
-              </ul>
+              </Stack>
             )}
-          </span>
-          <span className="games-table__filter-group">
-            <span className="games-table__filter-label">Year</span>
-            <input
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <TextField
               type="number"
-              className="input input-bordered input-xs games-table__year-input"
-              placeholder="From"
+              label="Year from"
+              size="small"
               value={yearFrom}
               onChange={(e) => setYearFrom(e.target.value)}
+              sx={{ width: 110 }}
             />
-            <span>–</span>
-            <input
+            <TextField
               type="number"
-              className="input input-bordered input-xs games-table__year-input"
-              placeholder="To"
+              label="Year to"
+              size="small"
               value={yearTo}
               onChange={(e) => setYearTo(e.target.value)}
+              sx={{ width: 110 }}
             />
-          </span>
+          </Box>
+
           {perspectivePlayer && (
             <>
-              <span className="games-table__filter-group">
-                <span className="games-table__filter-label">Color</span>
+              <FormGroup row sx={{ alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ mr: 1 }} color="text.secondary">
+                  Color
+                </Typography>
                 {COLOR_OPTIONS.map((option) => (
-                  <label key={option.value}>
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm"
-                      checked={colorFilter.has(option.value)}
-                      onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
-                    />
-                    {option.label} ({colorCounts[option.value]})
-                  </label>
+                  <FormControlLabel
+                    key={option.value}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={colorFilter.has(option.value)}
+                        onChange={() => setColorFilter((prev) => toggle(prev, option.value))}
+                      />
+                    }
+                    label={`${option.label} (${colorCounts[option.value]})`}
+                  />
                 ))}
-              </span>
-              <span className="games-table__filter-group">
-                <span className="games-table__filter-label">Result</span>
+              </FormGroup>
+              <FormGroup row sx={{ alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ mr: 1 }} color="text.secondary">
+                  Result
+                </Typography>
                 {OUTCOME_OPTIONS.map((option) => (
-                  <label key={option.value}>
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-sm"
-                      checked={outcomeFilter.has(option.value)}
-                      onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
-                    />
-                    {option.label} ({outcomeCounts[option.value]})
-                  </label>
+                  <FormControlLabel
+                    key={option.value}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={outcomeFilter.has(option.value)}
+                        onChange={() => setOutcomeFilter((prev) => toggle(prev, option.value))}
+                      />
+                    }
+                    label={`${option.label} (${outcomeCounts[option.value]})`}
+                  />
                 ))}
-              </span>
+              </FormGroup>
             </>
           )}
-        </div>
+        </Box>
 
         {perspectivePlayer && (
           <PatternFilter
@@ -332,50 +339,48 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
             onReset={reset}
           />
         )}
-      </div>
+      </Paper>
 
       {perspectivePlayer && outcomeFilter.size === 0 && (
-        <div className="layout-card">
-          <h2>Statistics for {perspectivePlayer.name}</h2>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Statistics for {perspectivePlayer.name}
+          </Typography>
           <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
-        </div>
+        </Paper>
       )}
 
-      <div className="layout-card layout-card--full">
-        <p className="games-table__filters-count">
+      <Paper variant="outlined" sx={{ p: 2, gridColumn: '1 / -1' }}>
+        <Typography variant="h6" gutterBottom>
           Showing {filteredRows.length} of {games.length} games
-        </p>
-        <div className="games-table-wrap">
-          <table className="games-table">
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>White</th>
-                <th>Elo</th>
-                <th>Black</th>
-                <th>Elo</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
+        </Typography>
+        <TableContainer sx={{ maxHeight: 600 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Year</TableCell>
+                <TableCell>White</TableCell>
+                <TableCell>Elo</TableCell>
+                <TableCell>Black</TableCell>
+                <TableCell>Elo</TableCell>
+                <TableCell>Result</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {filteredRows.map(({ game, color, year }, index) => (
-                <tr key={index} className="games-table__row" onClick={() => onSelectGame(game.raw)}>
-                  <td>{year ?? '?'}</td>
-                  <td className={color === 'white' ? 'games-table__player--selected' : undefined}>
-                    {game.headers.White ?? '?'}
-                  </td>
-                  <td>{game.headers.WhiteElo ?? '—'}</td>
-                  <td className={color === 'black' ? 'games-table__player--selected' : undefined}>
-                    {game.headers.Black ?? '?'}
-                  </td>
-                  <td>{game.headers.BlackElo ?? '—'}</td>
-                  <td>{game.headers.Result ?? '?'}</td>
-                </tr>
+                <TableRow key={index} hover sx={{ cursor: 'pointer' }} onClick={() => onSelectGame(game.raw)}>
+                  <TableCell>{year ?? '?'}</TableCell>
+                  <TableCell sx={{ fontWeight: color === 'white' ? 700 : 400 }}>{game.headers.White ?? '?'}</TableCell>
+                  <TableCell>{game.headers.WhiteElo ?? '—'}</TableCell>
+                  <TableCell sx={{ fontWeight: color === 'black' ? 700 : 400 }}>{game.headers.Black ?? '?'}</TableCell>
+                  <TableCell>{game.headers.BlackElo ?? '—'}</TableCell>
+                  <TableCell>{game.headers.Result ?? '?'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </>
   );
 }

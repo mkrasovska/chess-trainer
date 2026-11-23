@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Box, Button, IconButton, Link, List, ListItem, ListItemText, Paper, Typography } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { extractPgnFromFile } from '../lib/archiveFile';
 import { addArchiveToLibrary, listLibrary, loadLibraryGames, removeFromLibrary, type LibraryEntry } from '../lib/gameLibrary';
 import type { PgnGame } from '../lib/pgnUtils';
@@ -74,23 +76,22 @@ export function GameArchiveImport({ onGamesLoaded }: GameArchiveImportProps) {
   };
 
   return (
-    <div className="archive-import layout-card">
-      <p className="archive-import__hint">
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Typography variant="body2" sx={{ mb: 2 }}>
         Import .pgn files -- e.g. from{' '}
-        <a href="https://s2.chess-results.com/partiesuche.aspx?lan=1" target="_blank" rel="noreferrer">
+        <Link href="https://s2.chess-results.com/partiesuche.aspx?lan=1" target="_blank" rel="noreferrer">
           chess-results.com
-        </a>{' '}
+        </Link>{' '}
         -- they stay in your browser between visits.
-      </p>
+      </Typography>
 
-      <div className="archive-import__file-row">
-        <label className="btn btn-sm archive-import__file-button">
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Button component="label" variant="outlined" size="small" disabled={isAdding}>
           Choose file
           <input
             type="file"
             accept=".zip,.pgn"
-            disabled={isAdding}
-            className="archive-import__file-input"
+            hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) handleAdd(file);
@@ -99,32 +100,40 @@ export function GameArchiveImport({ onGamesLoaded }: GameArchiveImportProps) {
               e.target.value = '';
             }}
           />
-        </label>
-        <span className="archive-import__file-name">
+        </Button>
+        <Typography variant="body2" color="text.secondary">
           {library.length === 0 ? 'No file selected' : `${library.length} file${library.length === 1 ? '' : 's'} selected`}
-        </span>
-      </div>
-      {isAdding && <p className="archive-import__status">Adding to library...</p>}
-      {!isAdding && addStatus && <p className="archive-import__status">{addStatus}</p>}
+        </Typography>
+      </Box>
+
+      {isAdding && (
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          Adding to library...
+        </Typography>
+      )}
+      {!isAdding && addStatus && (
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          {addStatus}
+        </Typography>
+      )}
 
       {library.length > 0 && (
-        <div className="archive-import__library">
-          {library.map((entry) => (
-            <div className="archive-import__library-row" key={entry.id}>
-              <span className="archive-import__library-name">{entry.name}</span>
-              <span className="archive-import__library-size">{formatSize(entry.size)}</span>
-              <button
-                type="button"
-                className="btn btn-xs btn-circle btn-ghost"
-                onClick={() => handleRemove(entry.id)}
-                aria-label={`Remove ${entry.name}`}
-              >
-                ×
-              </button>
-            </div>
+        <List dense sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mt: 2 }}>
+          {library.map((entry, index) => (
+            <ListItem
+              key={entry.id}
+              divider={index < library.length - 1}
+              secondaryAction={
+                <IconButton size="small" aria-label={`Remove ${entry.name}`} onClick={() => handleRemove(entry.id)}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              }
+            >
+              <ListItemText primary={entry.name} secondary={formatSize(entry.size)} />
+            </ListItem>
           ))}
-        </div>
+        </List>
       )}
-    </div>
+    </Paper>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Box, Button, Collapse, Link, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import {
   AI_PROVIDERS,
   getAiProvider,
@@ -77,91 +78,103 @@ export function AiSettings({ onSaved }: AiSettingsProps) {
   }, [isOpen]);
 
   return (
-    <div className="ai-settings">
-      <button type="button" className="btn btn-sm ai-settings__toggle" onClick={() => setIsOpen((open) => !open)}>
+    <Box sx={{ position: 'relative' }}>
+      <Button size="small" onClick={() => setIsOpen((open) => !open)}>
         AI settings {isOpen ? '▲' : '▼'}
-      </button>
-      {isOpen && (
-        <div className="ai-settings__panel">
-          <label>
-            Provider
-            <select
-              className="select select-bordered select-sm"
-              value={provider}
-              onChange={(e) => handleProviderChange(e.target.value as AiProviderId)}
-            >
-              {AI_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
+      </Button>
+      <Collapse in={isOpen}>
+        <Paper
+          variant="outlined"
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: '100%',
+            zIndex: 10,
+            mt: 0.5,
+            p: 2,
+            width: 280,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+          }}
+        >
+          <TextField
+            select
+            label="Provider"
+            size="small"
+            value={provider}
+            onChange={(e) => handleProviderChange(e.target.value as AiProviderId)}
+          >
+            {AI_PROVIDERS.map((p) => (
+              <MenuItem key={p.id} value={p.id}>
+                {p.label}
+              </MenuItem>
+            ))}
+          </TextField>
 
-          <label>
-            {providerLabel} API key
-            <input
-              type="password"
-              className="input input-bordered input-sm"
-              value={apiKey}
-              onChange={(e) => {
-                setApiKeyState(e.target.value);
-                setModels(null);
-                setFetchError(null);
-              }}
-              onBlur={() => fetchModels(provider, apiKey)}
-              placeholder={`Paste your ${providerLabel} API key...`}
-            />
-          </label>
+          <TextField
+            type="password"
+            label={`${providerLabel} API key`}
+            size="small"
+            value={apiKey}
+            onChange={(e) => {
+              setApiKeyState(e.target.value);
+              setModels(null);
+              setFetchError(null);
+            }}
+            onBlur={() => fetchModels(provider, apiKey)}
+            placeholder={`Paste your ${providerLabel} API key...`}
+          />
 
-          {isFetchingModels && <p className="ai-settings__hint">Loading available models...</p>}
-          {fetchError && <p className="ai-settings__error">{fetchError}</p>}
+          {isFetchingModels && <Typography variant="body2">Loading available models...</Typography>}
+          {fetchError && (
+            <Typography variant="body2" color="error">
+              {fetchError}
+            </Typography>
+          )}
 
           {models && models.length > 0 && (
-            <label>
-              Model
-              <select className="select select-bordered select-sm" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TextField select label="Model" size="small" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+              {models.map((m) => (
+                <MenuItem key={m.id} value={m.id}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </TextField>
           )}
 
           {!models && !isFetchingModels && (
-            <button type="button" className="btn btn-sm" onClick={() => fetchModels(provider, apiKey)} disabled={!apiKey.trim()}>
+            <Button size="small" onClick={() => fetchModels(provider, apiKey)} disabled={!apiKey.trim()}>
               Load models
-            </button>
+            </Button>
           )}
 
-          <p className="ai-settings__hint">
+          <Typography variant="body2" color="text.secondary">
             {provider === 'gemini' ? (
               <>
                 Get a free key at{' '}
-                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+                <Link href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
                   aistudio.google.com/apikey
-                </a>
+                </Link>
                 .
               </>
             ) : (
               <>
                 Get a free key at{' '}
-                <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">
+                <Link href="https://console.groq.com/keys" target="_blank" rel="noreferrer">
                   console.groq.com/keys
-                </a>
+                </Link>
                 .
               </>
             )}{' '}
             Stored only in this browser, never sent anywhere but the provider's API.
-          </p>
+          </Typography>
 
-          <button type="button" className="btn btn-sm btn-primary" onClick={handleSave} disabled={!selectedModel}>
+          <Button variant="contained" size="small" onClick={handleSave} disabled={!selectedModel}>
             Save
-          </button>
-        </div>
-      )}
-    </div>
+          </Button>
+        </Paper>
+      </Collapse>
+    </Box>
   );
 }

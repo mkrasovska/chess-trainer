@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { useAiRequest } from '../hooks/useAiRequest';
 import { AiResultPanel } from './AiResultPanel';
 import { AiSettings } from './AiSettings';
@@ -89,62 +90,88 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
   };
 
   return (
-    <div className="move-analysis">
-      <button type="button" className="btn btn-sm btn-primary" onClick={handleAnalyze} disabled={isEvaluating || isAsking}>
+    <Box sx={{ mt: 1.5 }}>
+      <Button variant="contained" size="small" onClick={handleAnalyze} disabled={isEvaluating || isAsking}>
         {isEvaluating ? 'Evaluating...' : `Analyse ${moveSan}`}
-      </button>
+      </Button>
 
       {playedScore && (
-        <p className="move-analysis__played">
-          <span className="move-analysis__candidate-san">{moveSan} (played)</span>
-          <span className="move-analysis__candidate-score">{playedScore}</span>
-        </p>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 1,
+            mt: 1,
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            bgcolor: 'action.selected',
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {moveSan} (played)
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {playedScore}
+          </Typography>
+        </Box>
       )}
 
       {candidates && candidates.length > 0 && (
         <>
-          <p className="move-analysis__candidates-label">Engine's top {candidates.length}</p>
-          <ul className="move-analysis__candidates">
+          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Engine's top {candidates.length}
+          </Typography>
+          <Stack spacing={0.25}>
             {candidates.map((c) => {
               const rest = c.line.slice(c.san.length).trim();
               return (
-                <li key={c.san} className={c.isPlayed ? 'move-analysis__candidate--played' : undefined}>
-                  <span className="move-analysis__candidate-line">
-                    <span className="move-analysis__candidate-san">{c.san}</span>
+                <Box
+                  key={c.san}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    bgcolor: c.isPlayed ? 'action.selected' : undefined,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                    <Box component="span" sx={{ fontWeight: 700 }}>
+                      {c.san}
+                    </Box>
                     {rest && ` ${rest}`}
                     {c.isPlayed ? ' (played)' : ''}
-                  </span>
-                  <span className="move-analysis__candidate-score">{c.score}</span>
-                </li>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {c.score}
+                  </Typography>
+                </Box>
               );
             })}
-          </ul>
+          </Stack>
         </>
       )}
 
       {evals && (
-        <div className="move-analysis__ai-row">
-          <button
-            type="button"
-            className="btn btn-sm btn-outline move-analysis__ai-button"
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
             onClick={handleAskAi}
             disabled={isAsking || !aiReady}
             title={aiButtonTitle}
+            startIcon={isAsking ? <CircularProgress size={14} /> : undefined}
           >
-            {isAsking ? (
-              <>
-                <span className="loading loading-spinner loading-xs" />
-                Asking {providerLabel}...
-              </>
-            ) : (
-              'AI analysis'
-            )}
-          </button>
+            {isAsking ? `Asking ${providerLabel}...` : 'AI analysis'}
+          </Button>
           <AiSettings onSaved={() => setAiConfigVersion((v) => v + 1)} />
-        </div>
+        </Box>
       )}
 
       <AiResultPanel result={result} error={error} onClose={clear} />
-    </div>
+    </Box>
   );
 }
