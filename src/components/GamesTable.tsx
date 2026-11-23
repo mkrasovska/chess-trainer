@@ -102,7 +102,23 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
     setYearTo('');
   }, [games]);
 
-  const allPlayers = useMemo(() => findPlayersInGames(games, '', MAX_PLAYERS), [games]);
+  const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
+  const yearToNum = yearTo.trim() ? Number(yearTo) : null;
+
+  // Narrowed by the year filter too -- otherwise picking a year range still offered
+  // players whose games all fall outside it, who'd then match zero rows once picked.
+  const allPlayers = useMemo(() => {
+    const yearFilteredGames =
+      yearFromNum === null && yearToNum === null
+        ? games
+        : games.filter((game) => {
+            const year = getYear(game.headers);
+            if (yearFromNum !== null && (year === null || year < yearFromNum)) return false;
+            if (yearToNum !== null && (year === null || year > yearToNum)) return false;
+            return true;
+          });
+    return findPlayersInGames(yearFilteredGames, '', MAX_PLAYERS);
+  }, [games, yearFromNum, yearToNum]);
 
   const removePlayer = (player: PlayerMatch) => {
     setSelectedPlayers((prev) => prev.filter((p) => playerKey(p) !== playerKey(player)));
@@ -147,9 +163,6 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
       }),
     [historyRows, selectedPlayers, perspectivePlayer],
   );
-
-  const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
-  const yearToNum = yearTo.trim() ? Number(yearTo) : null;
 
   // Checks a row against every active filter except `exclude`, so each filter group's
   // own counters reflect every OTHER group's current selection without zeroing itself out.
