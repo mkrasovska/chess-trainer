@@ -1,3 +1,5 @@
+import { getCachedEval, setCachedEval } from './evalCache';
+
 export type CandidateMove = {
   moveUci: string;
   scoreCp: number | null;
@@ -39,14 +41,22 @@ export function createAnalysisEngine(): Promise<AnalysisEngine> {
         worker.postMessage('isready');
       } else if (message === 'readyok') {
         resolveReady({
-          evaluate: (fen, depth, multiPv = 1) =>
-            new Promise((resolve) => {
+          evaluate: (fen, depth, multiPv = 1) => {
+            const cached = getCachedEval(fen, depth, multiPv);
+            if (cached) return Promise.resolve(cached);
+            return new Promise((resolve) => {
               byRank = new Map();
-              pending = { resolve };
+              pending = {
+                resolve: (result) => {
+                  setCachedEval(fen, depth, multiPv, result);
+                  resolve(result);
+                },
+              };
               worker.postMessage(`setoption name MultiPV value ${multiPv}`);
               worker.postMessage(`position fen ${fen}`);
               worker.postMessage(`go depth ${depth}`);
-            }),
+            });
+          },
           terminate: () => worker.terminate(),
         });
       } else if (message.startsWith('info') && message.includes(' pv ')) {
