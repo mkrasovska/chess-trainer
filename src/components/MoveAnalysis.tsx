@@ -90,7 +90,12 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
   };
 
   return (
-    <>
+    // width: '100%' -- this is one flex item in App's eval-bar row (board column +
+    // this), which has flexWrap but no explicit basis of its own; without a full-width
+    // basis it gets squeezed into whatever sliver of space is left over in that row
+    // instead of wrapping onto its own line, which stretches it to the row's full
+    // height (flex's default align-items: stretch) and wraps its button text.
+    <Box sx={{ width: '100%' }}>
       <Button
         variant="contained"
         size="small"
@@ -182,6 +187,6 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
 
         <AiResultPanel result={result} error={error} onClose={clear} />
       </Box>
-    </>
+    </Box>
   );
 }
