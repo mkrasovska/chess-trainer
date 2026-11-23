@@ -35,11 +35,18 @@ export function PatternFilter({
       <Typography variant="h6" gutterBottom>
         Filter by game patterns
       </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
-        <Box sx={{ flexShrink: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'stretch', sm: 'flex-start' },
+          gap: 2,
+        }}
+      >
+        <Box sx={{ flexShrink: 0, alignSelf: { xs: 'center', sm: 'flex-start' } }}>
           <Board fen={fen} onMove={onMove} id="pattern-filter-board" size={280} />
         </Box>
-        <Box sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ flex: { sm: '1 1 0' }, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
             {moves.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
@@ -59,7 +66,7 @@ export function PatternFilter({
               ))
             )}
           </Box>
-          <Stack spacing={0.75}>
+          <Stack spacing={0.75} sx={{ maxWidth: 200 }}>
             <Button variant="outlined" size="small" fullWidth onClick={onUndo} disabled={moves.length === 0}>
               Undo
             </Button>

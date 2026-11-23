@@ -240,7 +240,18 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
     <>
       <Paper
         variant="outlined"
-        sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, gridColumn: outcomeFilter.size > 0 ? '1 / -1' : undefined }}
+        sx={{
+          p: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          gridColumn: outcomeFilter.size > 0 ? '1 / -1' : undefined,
+          // Grid items default to min-width: auto, so wide content (the pattern
+          // board, a long move list) would otherwise force this card -- and the
+          // whole grid row -- wider than the viewport instead of wrapping/scrolling
+          // within it.
+          minWidth: 0,
+        }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
           <Box sx={{ width: 280 }}>
@@ -356,7 +367,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
       </Paper>
 
       {perspectivePlayer && outcomeFilter.size === 0 && (
-        <Paper variant="outlined" sx={{ p: 2 }}>
+        <Paper variant="outlined" sx={{ p: 2, minWidth: 0 }}>
           <Typography variant="h6" gutterBottom>
             Statistics for {perspectivePlayer.name}
           </Typography>
@@ -364,7 +375,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
         </Paper>
       )}
 
-      <Paper variant="outlined" sx={{ p: 2, gridColumn: '1 / -1' }}>
+      <Paper variant="outlined" sx={{ p: 2, gridColumn: '1 / -1', minWidth: 0 }}>
         <Typography variant="h6" gutterBottom>
           Showing {filteredRows.length} of {games.length} games
         </Typography>
