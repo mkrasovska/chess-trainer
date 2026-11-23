@@ -558,8 +558,43 @@
   width: 64px;
 }
 
+.games-table__filter-group--player {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.games-table__player-search-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .games-table__player-select {
   max-width: 220px;
+}
+
+.games-table__player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.games-table__player-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.games-table__player-row > span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .games-table__player-count {

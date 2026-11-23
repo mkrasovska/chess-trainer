@@ -43,6 +43,9 @@ type HistoryRow = {
 type Row = HistoryRow & {
   color: Color | null;
   outcome: Outcome;
+  // Whether any selected player appears in this game (OR across the selection) --
+  // true unconditionally when none are selected, i.e. no baseline to apply yet.
+  matchesSelectedPlayers: boolean;
 };
 
 type FilterGroup = 'color' | 'outcome' | 'year' | 'pattern';
@@ -50,10 +53,14 @@ type FilterGroup = 'color' | 'outcome' | 'year' | 'pattern';
 export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // Player is a filter like any other below (Color/Result/Year) -- whose own games
   // these are isn't known from the source, so it's picked here, from a dropdown of
-  // every distinct identity found in the pool, not passed in from outside.
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerMatch | null>(null);
-  // The <input list> text -- kept separate from selectedPlayer so partial typing
-  // (not yet matching any suggestion exactly) doesn't itself count as a selection.
+  // every distinct identity found in the pool, not passed in from outside. Multiple
+  // can be picked (OR'd together -- a game shows if ANY of them appears in it); the
+  // Color/Result filters, pattern-filter, and stats card only make sense from a
+  // single perspective, so they only appear while exactly one is selected.
+  const [selectedPlayers, setSelectedPlayers] = useState<PlayerMatch[]>([]);
+  const perspectivePlayer = selectedPlayers.length === 1 ? selectedPlayers[0] : null;
+  // The <input list> text -- kept separate from selectedPlayers so partial typing
+  // (not yet matching any suggestion exactly) doesn't itself count as a pick.
   const [playerQuery, setPlayerQuery] = useState('');
 
   const [colorFilter, setColorFilter] = useState<Set<Color>>(new Set());
@@ -65,7 +72,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // against the previous one -- otherwise the previous source's player/filters would
   // keep being applied (and shown) against the new pool.
   useEffect(() => {
-    setSelectedPlayer(null);
+    setSelectedPlayers([]);
     setPlayerQuery('');
     setColorFilter(new Set());
     setOutcomeFilter(new Set());
@@ -79,6 +86,13 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // actually sits in the (editable) input once picked, so a volatile "N games" count
   // baked into that same text would look like a stray, editable part of the name.
   const playerIdentifier = (p: PlayerMatch) => `${p.name}${p.fideId ? ` (FIDE ${p.fideId})` : ''}`;
+  // Already-picked players drop out of the suggestion list -- nothing to gain from
+  // re-suggesting someone already added.
+  const pickablePlayers = allPlayers.filter((p) => !selectedPlayers.some((sp) => playerKey(sp) === playerKey(p)));
+
+  const removePlayer = (player: PlayerMatch) => {
+    setSelectedPlayers((prev) => prev.filter((p) => playerKey(p) !== playerKey(player)));
+  };
 
   const { fen, moves, makeMove, makeMoveSan, undo, truncateTo, reset } = usePrepLine();
   const moveSans = useMemo(() => moves.map((m) => m.san), [moves]);
@@ -87,10 +101,10 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // here -- for a big archive it's slow enough to visibly freeze the tab, with no
   // feedback, if done inline. Building it in an effect instead of a plain memo lets
   // the loading state below actually paint (via the rAF) before that work blocks the
-  // thread, and -- crucially -- keys it ONLY on `games`, not `selectedPlayer`, so
-  // picking a different player or going "back to players" (which only changes how
-  // color/outcome are computed per game, not the parse itself) stays instant instead
-  // of re-parsing everything all over again.
+  // thread, and -- crucially -- keys it ONLY on `games`, not `selectedPlayers`, so
+  // picking, removing, or clearing players (which only changes how color/outcome/
+  // matching are computed per game, not the parse itself) stays instant instead of
+  // re-parsing everything all over again.
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [isBuilding, setIsBuilding] = useState(true);
 
@@ -112,10 +126,12 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   const rows = useMemo(
     () =>
       historyRows.map((row) => {
-        const color = selectedPlayer ? getColor(row.game.headers, selectedPlayer) : null;
-        return { ...row, color, outcome: getOutcome(row.game.headers, color) };
+        const color = perspectivePlayer ? getColor(row.game.headers, perspectivePlayer) : null;
+        const matchesSelectedPlayers =
+          selectedPlayers.length === 0 || selectedPlayers.some((p) => getColor(row.game.headers, p) !== null);
+        return { ...row, color, outcome: getOutcome(row.game.headers, color), matchesSelectedPlayers };
       }),
-    [historyRows, selectedPlayer],
+    [historyRows, selectedPlayers, perspectivePlayer],
   );
 
   const yearFromNum = yearFrom.trim() ? Number(yearFrom) : null;
@@ -124,10 +140,11 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // Checks a row against every active filter except `exclude`, so each filter group's
   // own counters reflect every OTHER group's current selection without zeroing itself out.
   const matchesFilters = (row: Row, exclude: FilterGroup | null): boolean => {
-    // Baseline, not a toggleable filter group: once a player is selected, only their
-    // own games count at all -- row.color is null for any game they don't appear in.
-    // The Color/Result checkboxes below narrow further WITHIN that, same as before.
-    if (selectedPlayer && row.color === null) return false;
+    // Baseline, not a toggleable filter group: once one or more players are
+    // selected, only games involving at least one of them count at all. The
+    // Color/Result checkboxes below narrow further WITHIN that (perspective-
+    // dependent, so only shown -- and only meaningful -- for a single selection).
+    if (!row.matchesSelectedPlayers) return false;
     if (exclude !== 'color' && colorFilter.size > 0 && (row.color === null || !colorFilter.has(row.color))) return false;
     if (exclude !== 'outcome' && outcomeFilter.size > 0 && (row.outcome === 'unknown' || !outcomeFilter.has(row.outcome))) return false;
     if (exclude !== 'year') {
@@ -167,17 +184,18 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
   // Rows passing every filter except the move pattern itself, i.e. exactly the set
   // the pattern filter should be narrowing down from. getNextMoveBreakdown does its
   // own prefix check internally to find what's actually playable next. Needs a
-  // selectedPlayer to compute win/loss/draw from, so it's just empty without one --
-  // the pattern filter and opening-stats card that consume this aren't rendered then.
+  // single perspective player to compute win/loss/draw from, so it's just empty
+  // without one -- the pattern filter and opening-stats card that consume this
+  // aren't rendered then.
   const nextMoveStats = useMemo(() => {
-    if (!selectedPlayer) return [];
+    if (!perspectivePlayer) return [];
     const otherFilteredRows = rows.filter((row) => matchesFilters(row, 'pattern'));
     return getNextMoveBreakdown(
       otherFilteredRows.map((row) => ({ headers: row.game.headers, history: row.history })),
-      selectedPlayer,
+      perspectivePlayer,
       moveSans,
     );
-  }, [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans, selectedPlayer]);
+  }, [rows, colorFilter, outcomeFilter, yearFromNum, yearToNum, moveSans, perspectivePlayer]);
 
   if (isBuilding) {
     return (
@@ -197,35 +215,57 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
     <>
       <div className={`layout-card${outcomeFilter.size > 0 ? ' layout-card--full' : ''}`}>
         <div className="games-table__filters">
-          <span className="games-table__filter-group">
-            <span className="games-table__filter-label">Player</span>
-            <input
-              type="text"
-              list="games-table-players"
-              className="input input-bordered input-xs games-table__player-select"
-              placeholder="All players"
-              value={playerQuery}
-              onChange={(e) => {
-                const value = e.target.value;
-                setPlayerQuery(value);
-                // Only an exact match (i.e. an actual pick from the list, not partial
-                // typing) counts as a selection.
-                setSelectedPlayer(allPlayers.find((p) => playerIdentifier(p) === value) ?? null);
-              }}
-            />
-            <datalist id="games-table-players">
-              {allPlayers.map((player) => (
-                <option
-                  key={playerKey(player)}
-                  value={playerIdentifier(player)}
-                  label={`${player.gameCount} game${player.gameCount === 1 ? '' : 's'}`}
-                />
-              ))}
-            </datalist>
-            {selectedPlayer && (
-              <span className="games-table__player-count">
-                {selectedPlayer.gameCount} game{selectedPlayer.gameCount === 1 ? '' : 's'}
-              </span>
+          <span className="games-table__filter-group games-table__filter-group--player">
+            <span className="games-table__player-search-row">
+              <span className="games-table__filter-label">Player</span>
+              <input
+                type="text"
+                list="games-table-players"
+                className="input input-bordered input-xs games-table__player-select"
+                placeholder={selectedPlayers.length === 0 ? 'All players' : 'Add another...'}
+                value={playerQuery}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const match = pickablePlayers.find((p) => playerIdentifier(p) === value);
+                  if (match) {
+                    // An exact match means an actual pick from the list (not partial
+                    // typing) -- add it and clear the box so it's ready for the next one.
+                    setSelectedPlayers((prev) => [...prev, match]);
+                    setPlayerQuery('');
+                  } else {
+                    setPlayerQuery(value);
+                  }
+                }}
+              />
+              <datalist id="games-table-players">
+                {pickablePlayers.map((player) => (
+                  <option
+                    key={playerKey(player)}
+                    value={playerIdentifier(player)}
+                    label={`${player.gameCount} game${player.gameCount === 1 ? '' : 's'}`}
+                  />
+                ))}
+              </datalist>
+            </span>
+            {selectedPlayers.length > 0 && (
+              <ul className="games-table__player-list">
+                {selectedPlayers.map((player) => (
+                  <li key={playerKey(player)} className="games-table__player-row">
+                    <span>{playerIdentifier(player)}</span>
+                    <span className="games-table__player-count">
+                      {player.gameCount} game{player.gameCount === 1 ? '' : 's'}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-circle btn-ghost"
+                      aria-label={`Remove ${player.name}`}
+                      onClick={() => removePlayer(player)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </span>
           <span className="games-table__filter-group">
@@ -246,7 +286,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
               onChange={(e) => setYearTo(e.target.value)}
             />
           </span>
-          {selectedPlayer && (
+          {perspectivePlayer && (
             <>
               <span className="games-table__filter-group">
                 <span className="games-table__filter-label">Color</span>
@@ -280,7 +320,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
           )}
         </div>
 
-        {selectedPlayer && (
+        {perspectivePlayer && (
           <PatternFilter
             fen={fen}
             moves={moves}
@@ -294,9 +334,9 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
         )}
       </div>
 
-      {selectedPlayer && outcomeFilter.size === 0 && (
+      {perspectivePlayer && outcomeFilter.size === 0 && (
         <div className="layout-card">
-          <h2>Statistics for {selectedPlayer.name}</h2>
+          <h2>Statistics for {perspectivePlayer.name}</h2>
           <OpeningStats stats={nextMoveStats} columnLabel={moveSans.length === 0 ? 'First move' : 'Next move'} />
         </div>
       )}
