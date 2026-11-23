@@ -14,9 +14,9 @@ import { MoveList } from './components/MoveList';
 import { PgnImport } from './components/PgnImport';
 import { Stepper, type Step } from './components/Stepper';
 import { useChessGame } from './hooks/useChessGame';
+import { useElementWidth } from './hooks/useElementWidth';
 import { useGameAnalysis } from './hooks/useGameAnalysis';
 import { useStockfish } from './hooks/useStockfish';
-import { useViewportWidth } from './hooks/useViewportWidth';
 import type { PgnGame } from './lib/pgnUtils';
 
 // 'lichess' removed for now -- LichessImport.tsx is kept but unused, not deleted.
@@ -136,12 +136,17 @@ function App() {
 
   // react-chessboard measures its own rendered pixel size (ResizeObserver) and expects
   // a definite width/height -- sizing it purely through CSS (aspect-ratio etc.) previously
-  // broke its internal grid rendering. Computing a real pixel size from the viewport here
-  // keeps Board's literal-pixel-size contract intact while still shrinking it to fit next
-  // to the eval bar on a narrow screen, instead of letting the row wrap.
-  const BOARD_ROW_CHROME = 96; // side padding + eval bar + gap + safety margin
-  const viewportWidth = useViewportWidth();
-  const boardSize = Math.max(200, Math.min(DEFAULT_BOARD_SIZE, viewportWidth - BOARD_ROW_CHROME));
+  // broke its internal grid rendering. Measuring the Paper's own content width (not the
+  // viewport) and deriving boardSize from THAT keeps Board's literal-pixel-size contract
+  // intact while staying correct regardless of how much padding/gutter wraps around it --
+  // a viewport-minus-hand-tuned-constant approach silently went stale (and overflowed on
+  // mobile) the moment this page gained an extra layout layer (MUI's Container + Paper).
+  // Not circular: Paper's own width comes from its container, never from its children's
+  // content, so measuring it doesn't feed back into the size being computed from it.
+  const [paperRef, paperWidth] = useElementWidth<HTMLDivElement>();
+  const EVAL_BAR_AND_GAP = 44; // EvalBar's own width (32px) + the gap next to it (sx gap: 1.5 = 12px)
+  const boardSize =
+    paperWidth > 0 ? Math.max(200, Math.min(DEFAULT_BOARD_SIZE, paperWidth - EVAL_BAR_AND_GAP)) : DEFAULT_BOARD_SIZE;
 
   const step2Reachable = isGameLoaded;
 
@@ -173,8 +178,8 @@ function App() {
       </Box>
 
       <Box sx={{ display: currentStep === 2 ? undefined : 'none' }}>
-        <Paper variant="outlined" sx={{ p: 2, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Paper ref={paperRef} variant="outlined" sx={{ p: 2, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
             <EvalBar
               scoreCp={line?.scoreCp ?? null}
               scoreMate={line?.scoreMate ?? null}
@@ -217,16 +222,16 @@ function App() {
                   Exploring a different line{branchMoves.length > 0 && `: ${branchMoves.map((m) => m.san).join(' ')}`}
                 </Alert>
               )}
-              {lastMoveSan && previousFen && (
-                <MoveAnalysis
-                  key={`${previousFen}|${currentFen}`}
-                  fenBefore={previousFen}
-                  fenAfter={currentFen}
-                  moveSan={lastMoveSan}
-                  moverColor={previousFen.split(' ')[1] === 'b' ? 'b' : 'w'}
-                />
-              )}
             </Box>
+            {lastMoveSan && previousFen && (
+              <MoveAnalysis
+                key={`${previousFen}|${currentFen}`}
+                fenBefore={previousFen}
+                fenAfter={currentFen}
+                moveSan={lastMoveSan}
+                moverColor={previousFen.split(' ')[1] === 'b' ? 'b' : 'w'}
+              />
+            )}
           </Box>
           <Box sx={{ flex: '1 1 260px', minWidth: 260, textAlign: 'left' }}>
             {moves.length > 0 && (

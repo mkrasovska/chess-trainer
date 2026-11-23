@@ -229,10 +229,11 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
         variant="outlined"
         sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, gridColumn: outcomeFilter.size > 0 ? '1 / -1' : undefined }}
       >
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-start' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start' }}>
           <Box sx={{ width: 280 }}>
             <Autocomplete
               multiple
+              disableClearable
               size="small"
               options={allPlayers}
               value={selectedPlayers}
@@ -288,7 +289,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
           {perspectivePlayer && (
             <>
               <FormGroup row sx={{ alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ mr: 1 }} color="text.secondary">
+                <Typography variant="body2" sx={{ mr: 1, fontWeight: 700 }} color="text.secondary">
                   Color
                 </Typography>
                 {COLOR_OPTIONS.map((option) => (
@@ -306,7 +307,7 @@ export function GamesTable({ games, onSelectGame }: GamesTableProps) {
                 ))}
               </FormGroup>
               <FormGroup row sx={{ alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ mr: 1 }} color="text.secondary">
+                <Typography variant="body2" sx={{ mr: 1, fontWeight: 700 }} color="text.secondary">
                   Result
                 </Typography>
                 {OUTCOME_OPTIONS.map((option) => (

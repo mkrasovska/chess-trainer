@@ -3,7 +3,7 @@ import type { CandidateMove, PositionEval } from './analysisEngine';
 
 export function formatScore(scoreCp: number | null, scoreMate: number | null): string {
   if (scoreMate !== null) return scoreMate > 0 ? `mate in ${scoreMate}` : `getting mated in ${Math.abs(scoreMate)}`;
-  if (scoreCp !== null) return `${(scoreCp / 100).toFixed(2)} pawns`;
+  if (scoreCp !== null) return (scoreCp / 100).toFixed(2);
   return 'unknown';
 }
 

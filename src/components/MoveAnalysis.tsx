@@ -90,88 +90,98 @@ export function MoveAnalysis({ fenBefore, fenAfter, moveSan, moverColor }: MoveA
   };
 
   return (
-    <Box sx={{ mt: 1.5 }}>
-      <Button variant="contained" size="small" onClick={handleAnalyze} disabled={isEvaluating || isAsking}>
+    <>
+      <Button
+        variant="contained"
+        size="small"
+        onClick={handleAnalyze}
+        disabled={isEvaluating || isAsking}
+        sx={{ mt: 1.5 }}
+      >
         {isEvaluating ? 'Evaluating...' : `Analyse ${moveSan}`}
       </Button>
 
-      {playedScore && (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 1,
-            mt: 1,
-            px: 1,
-            py: 0.5,
-            borderRadius: 1,
-            bgcolor: 'action.selected',
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {moveSan} (played)
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {playedScore}
-          </Typography>
-        </Box>
-      )}
-
-      {candidates && candidates.length > 0 && (
-        <>
-          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Engine's top {candidates.length}
-          </Typography>
-          <Stack spacing={0.25}>
-            {candidates.map((c) => {
-              const rest = c.line.slice(c.san.length).trim();
-              return (
-                <Box
-                  key={c.san}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 1,
-                    px: 1,
-                    py: 0.25,
-                    borderRadius: 1,
-                    bgcolor: c.isPlayed ? 'action.selected' : undefined,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                    <Box component="span" sx={{ fontWeight: 700 }}>
-                      {c.san}
-                    </Box>
-                    {rest && ` ${rest}`}
-                    {c.isPlayed ? ' (played)' : ''}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {c.score}
-                  </Typography>
-                </Box>
-              );
-            })}
-          </Stack>
-        </>
-      )}
-
-      {evals && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={handleAskAi}
-            disabled={isAsking || !aiReady}
-            title={aiButtonTitle}
-            startIcon={isAsking ? <CircularProgress size={14} /> : undefined}
+      <Box sx={{ mt: 1.5 }}>
+        {playedScore && (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 1,
+              mt: 1,
+              pl: 0,
+              pr: 1,
+              py: 0.5,
+              borderRadius: 1,
+              bgcolor: 'action.selected',
+            }}
           >
-            {isAsking ? `Asking ${providerLabel}...` : 'AI analysis'}
-          </Button>
-          <AiSettings onSaved={() => setAiConfigVersion((v) => v + 1)} />
-        </Box>
-      )}
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {moveSan} (played)
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {playedScore}
+            </Typography>
+          </Box>
+        )}
 
-      <AiResultPanel result={result} error={error} onClose={clear} />
-    </Box>
+        {candidates && candidates.length > 0 && (
+          <>
+            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Engine's top {candidates.length}
+            </Typography>
+            <Stack spacing={0.25}>
+              {candidates.map((c) => {
+                const rest = c.line.slice(c.san.length).trim();
+                return (
+                  <Box
+                    key={c.san}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 1,
+                      pl: 0,
+                      pr: 1,
+                      py: 0.25,
+                      borderRadius: 1,
+                      bgcolor: c.isPlayed ? 'action.selected' : undefined,
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                      <Box component="span" sx={{ fontWeight: 700 }}>
+                        {c.san}
+                      </Box>
+                      {rest && ` ${rest}`}
+                      {c.isPlayed ? ' (played)' : ''}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {c.score}
+                    </Typography>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </>
+        )}
+
+        {evals && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleAskAi}
+              disabled={isAsking || !aiReady}
+              title={aiButtonTitle}
+              startIcon={isAsking ? <CircularProgress size={14} /> : undefined}
+            >
+              {isAsking ? `Asking ${providerLabel}...` : 'AI analysis'}
+            </Button>
+            <AiSettings onSaved={() => setAiConfigVersion((v) => v + 1)} />
+          </Box>
+        )}
+
+        <AiResultPanel result={result} error={error} onClose={clear} />
+      </Box>
+    </>
   );
 }
